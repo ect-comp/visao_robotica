@@ -1,0 +1,137 @@
+---
+title: "Aula template"
+subtitle: "Elementos para as aulas de Visão Robótica"
+bibliography: ../../referencias.bib
+title-slide-attributes:
+  data-background-image: ../../assets/img/brasao_ufrn_positivo.png
+  data-background-size: "50%, auto, contain"
+  data-background-opacity: "0.05"
+---
+
+## Objetivos da Aula
+
+- Mostrar os elementos disponíveis neste modelo
+- Servir de ponto de partida para uma nova aula
+- Conferir a aparência antes da publicação
+
+---
+
+## Título e Texto
+
+Este slide demonstra texto simples, **ênfase forte**, *ênfase leve* e um [link](https://quarto.org/).
+
+Use um assunto por slide. Quando a explicação exigir etapas, mantenha o título e revele cada parte aos poucos.
+
+::: {.notes}
+Estas notas aparecem na visão do apresentador. Pressione S durante a apresentação.
+:::
+
+---
+
+## Colunas
+
+::: {.columns}
+::: {.column width="50%"}
+### Primeira coluna
+
+- Texto curto
+- Lista
+- Expressão: $f(x)=x^2$
+:::
+
+::: {.column width="50%"}
+### Segunda coluna
+
+![Logotipo da ECT usado como imagem de exemplo](../../assets/img/logo_ect.png){width=30% fig-align="center"}
+
+Substitua esta imagem por um arquivo da aula.
+:::
+:::
+
+---
+
+## Imagem {.nostretch}
+
+![Brasão da UFRN usado para testar o posicionamento e a legenda](../../assets/img/brasao_ufrn_positivo.png){width=30% fig-align="center"}
+
+Imagens da aula podem ficar em uma pasta `img/` ao lado do arquivo `.qmd`.
+
+---
+
+## Tabela
+
+| Elemento | Sintaxe principal | Uso |
+|:---------|:------------------|:----|
+| Imagem | `![](arquivo.png)` | Figura ou diagrama |
+| Equação | `$...$` | Expressão matemática |
+| Código | Bloco cercado por crases | Exemplo de programa |
+
+---
+
+## Código Fonte
+
+```python
+def quadrado(valor):
+    return valor * valor
+
+print(quadrado(3))
+```
+
+Use a linguagem apropriada à aula. Este bloco é exibido, mas não é executado durante a renderização.
+
+---
+
+## Equações
+
+Equação em linha: $f(x)=x^2$.
+
+Equação destacada:
+
+$$
+f(x) = x^2 + 2x + 1
+$$
+
+---
+
+## Caixas de Alerta
+
+::: {.callout-note appearance="simple"}
+Esta caixa destaca uma observação.
+:::
+
+::: {.callout-important appearance="simple"}
+Esta caixa destaca um ponto essencial.
+:::
+
+---
+
+## Revelação Progressiva
+
+Primeiro, apresente a pergunta.
+
+. . .
+
+Depois, mostre a resposta ou o próximo passo.
+
+---
+
+## Notas de Rodapé
+
+Uma afirmação pode incluir uma nota explicativa.^[Esta é uma nota de rodapé de exemplo; substitua seu texto conforme a aula.]
+
+---
+
+## Referências
+
+O Quarto gera apresentações RevealJS a partir de Markdown [@quarto].
+
+::: {#refs}
+:::
+
+---
+
+## Próximos Passos
+
+1. Copie este arquivo para uma nova pasta de aula
+2. Substitua os exemplos pelo conteúdo real
+3. Renderize e revise o HTML no navegador

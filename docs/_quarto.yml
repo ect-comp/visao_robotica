@@ -1,0 +1,17 @@
+project:
+  title: "Visão Robótica - ECT/UFRN"
+  type: website
+  output-dir: .
+
+lang: pt-BR
+author: "Prof. Bruno Silva"
+institute: "ECT/UFRN"
+
+format:
+  revealjs:
+    theme: default
+    logo: assets/img/logo_ect.png
+    css: assets/css/logo.css
+    footer: "Visão Robótica - ECT/UFRN"
+    slide-level: 2
+    html-math-method: katex

@@ -1,0 +1,5 @@
+.DS_Store
+docs/.quarto/
+docs/index.html
+docs/search.json
+**/.ipynb_checkpoints/
