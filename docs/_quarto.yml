@@ -12,6 +12,6 @@ format:
     theme: default
     logo: assets/img/logo_ect.png
     css: assets/css/logo.css
-    footer: "Visão Robótica - ECT/UFRN"
+    footer: "Visão Robótica - PPGEMECA/UFRN"
     slide-level: 2
     html-math-method: katex
