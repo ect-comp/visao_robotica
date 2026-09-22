@@ -10,7 +10,6 @@ institute: "ECT/UFRN"
 format:
   revealjs:
     theme: default
-    logo: assets/img/logo_ect.png
     css: assets/css/logo.css
     footer: "Visão Robótica - PPGEMECA/UFRN"
     slide-level: 2
