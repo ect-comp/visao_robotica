@@ -5,3 +5,5 @@
 ## [Casamento por Blocos](./slides/correlacao/correlacao.html)
 
 ## [Fluxo Óptico](./slides/fluxo_optico/fluxo_optico.html)
+
+## [Features Multiescala](./slides/features_multiescala/features_multiescala.html)
