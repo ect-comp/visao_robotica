@@ -98,17 +98,10 @@ E no caso de uma janela $5\times5$? No que isto influencia?
 - Aumentar o tamanho do filtro
 - Aumentar o tamanho da imagem, mantendo o tamanho do filtro constante
 
-## Features Multiescala – Intuição IV {.smaller}
+## Features Multiescala – Intuição IV
 
-Esta intuição é explorada nos detectores de pontos multiescala:
-
-- **SIFT** (*Scale Invariant Feature Transform*)
-  - Algoritmo mais conhecido que detecta este tipo de feature
-  - Objeto de estudo desta aula
-- **SURF** (*Speeded-Up Robust Features*)
-- **BRIEF** (*Binary Robust Independent Elementary Features*)
-- **ORB** (*Oriented BRIEF*)
-- **FREAK** (*Fast Retina Keypoint*)
+Esta intuição é explorada nos detectores de pontos multiescala.
+O primeiro deles é o **SIFT** (*Scale Invariant Feature Transform*)
 
 ## Espaço de Escalas I
 
@@ -142,7 +135,7 @@ O primeiro passo para gerar o espaço de escalas de uma imagem é construir uma 
 - Cada nível $l$ da pirâmide é construído com
   - A imagem original é o nível 0 da pirâmide
   - O descarte de linha sim/linha não, coluna sim/coluna não da imagem do nível anterior
-  - A filtragem passa-baixas utilizando um determinado valor para $\sigma$
+  - A filtragem passa-baixas na imagem subamostrada utilizando um determinado valor para $\sigma$
 
 ## Espaço de Escalas V {.nostretch}
 
@@ -219,7 +212,7 @@ Detalhes:
 
 ## Próximos Passos
 
-A cada ponto/escala, são atribuídos:
+A cada ponto/escala, devem ser atribuídos:
 
 - Uma orientação (ângulo) local
 - Um vetor descritor
@@ -296,7 +289,9 @@ Torna o ponto invariante a mudanças na:
 A partir da posição, escala e orientação do ponto:
 
 - A posição e a orientação do gradiente são computadas levando-se em consideração a orientação do ponto SIFT
-- O descritor é formado pelo vetor contendo histogramas de gradientes computados em 4 regiões em torno do ponto
+- O descritor é formado pelo vetor contendo histogramas de gradientes computados em várias regiões de tamanho $4 \times 4$
+  em torno do ponto
+- O tamanho de cada região depende da escala do ponto
 
 ![](img/construcao_descritor.png){height=250px fig-align="center"}
 
@@ -310,6 +305,28 @@ A partir da posição, escala e orientação do ponto:
 <video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 80%; height: 80%; object-fit: contain;">
   <source src="img/descritor_sift.mp4" type="video/mp4">
 </video>
+
+## Exemplo: Features SIFT {.nostretch}
+
+![](img/box_sift.png){height=550px fig-align="center"} 
+
+## Funções da OpenCV
+
+Função da OpenCV relacionada ao tópico da aula:
+
+- `cv2.SIFT_create()`: cria objeto SIFT
+- `detect()`: detecta pontos na imagem
+- `compute()`: extrai descritores para pontos previamente detectados
+
+## Guia de Leitura
+
+- Pirâmides de Gaussianas (OpenCV) [@opencvPyramids]
+- SIFT [@lowe2004]
+- Outras features multiescalas:
+  - **SURF** (*Speeded-Up Robust Features*) [@bay2008]
+  - **BRIEF** (*Binary Robust Independent Elementary Features*) [@calonder2010]
+  - **ORB** (*Oriented BRIEF*) [@rublee2011]
+  - **FREAK** (*Fast Retina Keypoint*) [@alahi2012]
 
 ## Sumário
 

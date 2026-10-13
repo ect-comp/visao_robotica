@@ -260,20 +260,9 @@ Prof.&nbsp;Bruno Silva
 <li>Aumentar o tamanho da imagem, mantendo o tamanho do filtro constante</li>
 </ul>
 </section>
-<section id="features-multiescala-intuição-iv-1" class="slide level2 smaller">
+<section id="features-multiescala-intuição-iv-1" class="slide level2">
 <h2>Features Multiescala – Intuição IV</h2>
-<p>Esta intuição é explorada nos detectores de pontos multiescala:</p>
-<ul>
-<li><strong>SIFT</strong> (<em>Scale Invariant Feature Transform</em>)
-<ul>
-<li>Algoritmo mais conhecido que detecta este tipo de feature</li>
-<li>Objeto de estudo desta aula</li>
-</ul></li>
-<li><strong>SURF</strong> (<em>Speeded-Up Robust Features</em>)</li>
-<li><strong>BRIEF</strong> (<em>Binary Robust Independent Elementary Features</em>)</li>
-<li><strong>ORB</strong> (<em>Oriented BRIEF</em>)</li>
-<li><strong>FREAK</strong> (<em>Fast Retina Keypoint</em>)</li>
-</ul>
+<p>Esta intuição é explorada nos detectores de pontos multiescala. O primeiro deles é o <strong>SIFT</strong> (<em>Scale Invariant Feature Transform</em>)</p>
 </section>
 <section id="espaço-de-escalas-i" class="slide level2">
 <h2>Espaço de Escalas I</h2>
@@ -311,7 +300,7 @@ L(x,y,\sigma)=G(x,y,\sigma)*I(x,y)
 <ul>
 <li>A imagem original é o nível 0 da pirâmide</li>
 <li>O descarte de linha sim/linha não, coluna sim/coluna não da imagem do nível anterior</li>
-<li>A filtragem passa-baixas utilizando um determinado valor para <span class="math inline">\sigma</span></li>
+<li>A filtragem passa-baixas na imagem subamostrada utilizando um determinado valor para <span class="math inline">\sigma</span></li>
 </ul></li>
 </ul>
 </section>
@@ -403,7 +392,7 @@ G_0-G'_0=L_0,\qquad G_1-G'_1=L_1,\qquad G_2-G'_2=L_2
 </section>
 <section id="próximos-passos" class="slide level2">
 <h2>Próximos Passos</h2>
-<p>A cada ponto/escala, são atribuídos:</p>
+<p>A cada ponto/escala, devem ser atribuídos:</p>
 <ul>
 <li>Uma orientação (ângulo) local</li>
 <li>Um vetor descritor</li>
@@ -488,7 +477,8 @@ m(x,y)=\sqrt{[L(x+1,y)-L(x-1,y)]^2+[L(x,y+1)-L(x,y-1)]^2}
 <p>A partir da posição, escala e orientação do ponto:</p>
 <ul>
 <li>A posição e a orientação do gradiente são computadas levando-se em consideração a orientação do ponto SIFT</li>
-<li>O descritor é formado pelo vetor contendo histogramas de gradientes computados em 4 regiões em torno do ponto</li>
+<li>O descritor é formado pelo vetor contendo histogramas de gradientes computados em várias regiões de tamanho <span class="math inline">4 \times 4</span> em torno do ponto</li>
+<li>O tamanho de cada região depende da escala do ponto</li>
 </ul>
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -509,6 +499,37 @@ m(x,y)=\sqrt{[L(x+1,y)-L(x-1,y)]^2+[L(x,y+1)-L(x,y-1)]^2}
 <source src="img/descritor_sift.mp4" type="video/mp4">
 </video>
 </section>
+<section id="exemplo-features-sift" class="slide level2 nostretch">
+<h2>Exemplo: Features SIFT</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="img/box_sift.png" class="quarto-figure quarto-figure-center" height="550"></p>
+</figure>
+</div>
+</section>
+<section id="funções-da-opencv" class="slide level2">
+<h2>Funções da OpenCV</h2>
+<p>Função da OpenCV relacionada ao tópico da aula:</p>
+<ul>
+<li><code>cv2.SIFT_create()</code>: cria objeto SIFT</li>
+<li><code>detect()</code>: detecta pontos na imagem</li>
+<li><code>compute()</code>: extrai descritores para pontos previamente detectados</li>
+</ul>
+</section>
+<section id="guia-de-leitura" class="slide level2">
+<h2>Guia de Leitura</h2>
+<ul>
+<li>Pirâmides de Gaussianas (OpenCV) <span class="citation" data-cites="opencvPyramids">(<a href="#/referências" role="doc-biblioref" onclick="">OpenCV, s. d.</a>)</span></li>
+<li>SIFT <span class="citation" data-cites="lowe2004">(<a href="#/referências" role="doc-biblioref" onclick="">Lowe 2004</a>)</span></li>
+<li>Outras features multiescalas:
+<ul>
+<li><strong>SURF</strong> (<em>Speeded-Up Robust Features</em>) <span class="citation" data-cites="bay2008">(<a href="#/referências" role="doc-biblioref" onclick="">Bay et al. 2008</a>)</span></li>
+<li><strong>BRIEF</strong> (<em>Binary Robust Independent Elementary Features</em>) <span class="citation" data-cites="calonder2010">(<a href="#/referências" role="doc-biblioref" onclick="">Calonder et al. 2010</a>)</span></li>
+<li><strong>ORB</strong> (<em>Oriented BRIEF</em>) <span class="citation" data-cites="rublee2011">(<a href="#/referências" role="doc-biblioref" onclick="">Rublee et al. 2011</a>)</span></li>
+<li><strong>FREAK</strong> (<em>Fast Retina Keypoint</em>) <span class="citation" data-cites="alahi2012">(<a href="#/referências" role="doc-biblioref" onclick="">Alahi et al. 2012</a>)</span></li>
+</ul></li>
+</ul>
+</section>
 <section id="sumário" class="slide level2">
 <h2>Sumário</h2>
 <p>Nesta aula, feature multiescala SIFT:</p>
@@ -521,8 +542,25 @@ m(x,y)=\sqrt{[L(x+1,y)-L(x-1,y)]^2+[L(x,y+1)-L(x,y-1)]^2}
 </section>
 <section id="referências" class="slide level2 smaller scrollable">
 <h2>Referências</h2>
-<div id="refs" role="list">
-
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-alahi2012" class="csl-entry" role="listitem">
+Alahi, A., R. Ortiz, e P. Vandergheynst. 2012. <span>“<span>FREAK</span>: Fast Retina Keypoint”</span>. <em>Conference on Computer Vision and Pattern Recognition</em>.
+</div>
+<div id="ref-bay2008" class="csl-entry" role="listitem">
+Bay, Herbert, Andreas Ess, Tinne Tuytelaars, e Luc Van Gool. 2008. <span>“Speeded-Up Robust Features (<span>SURF</span>)”</span>. <em>Computer Vision and Image Understanding</em> 110 (3): 346–59. <a href="https://doi.org/10.1016/j.cviu.2007.09.014">https://doi.org/10.1016/j.cviu.2007.09.014</a>.
+</div>
+<div id="ref-calonder2010" class="csl-entry" role="listitem">
+Calonder, M., V. Lepetit, C. Strecha, e P. Fua. 2010. <span>“Binary Robust Independent Elementary Features (<span>BRIEF</span>)”</span>. <em>European Conference on Computer Vision</em>.
+</div>
+<div id="ref-lowe2004" class="csl-entry" role="listitem">
+Lowe, D. 2004. <span>“Distinctive Image Features from Scale-Invariant Keypoints”</span>. <em>International Journal of Computer Vision</em>. <a href="https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf">https://www.cs.ubc.ca/~lowe/papers/ijcv04.pdf</a>.
+</div>
+<div id="ref-opencvPyramids" class="csl-entry" role="listitem">
+OpenCV. s. d. <span>“Image Pyramids Tutorial”</span>. Acesso em 4 de novembro de 2023. <a href="https://docs.opencv.org/4.x/dc/dff/tutorial_py_pyramids.html">https://docs.opencv.org/4.x/dc/dff/tutorial_py_pyramids.html</a>.
+</div>
+<div id="ref-rublee2011" class="csl-entry" role="listitem">
+Rublee, E., V. Rabaud, K. Konolige, e G. Bradski. 2011. <span>“<span>ORB</span>: An Efficient Alternative to <span>SIFT</span> or <span>SURF</span>”</span>. <em>International Conference on Computer Vision</em>.
+</div>
 </div>
 
 
