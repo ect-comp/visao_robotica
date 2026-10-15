@@ -7,3 +7,5 @@
 ## [Fluxo Óptico](./slides/fluxo_optico/fluxo_optico.html)
 
 ## [Features Multiescala](./slides/features_multiescala/features_multiescala.html)
+
+## [Casamento de Descritores](./slides/casamento_descritores/casamento_descritores.html)
