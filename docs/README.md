@@ -11,3 +11,5 @@
 ## [Casamento de Descritores](./slides/casamento_descritores/casamento_descritores.html)
 
 ## [Homografia](./slides/homografia/homografia.html)
+
+## [RANSAC](./slides/ransac/ransac.html)
