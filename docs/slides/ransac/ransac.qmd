@@ -176,7 +176,7 @@ Observe que, com um conjunto contendo $M$ correspondências e um modelo que prec
 - Caso o algoritmo seja exaustivo (teste todas as possibilidades), ele não será computacionalmente eficiente
 - Um número máximo $N$ de amostras a serem testadas deve ser especificado
 
-## RANSAC: Número de Amostras II
+## RANSAC: Número de Amostras II {.smaller}
 
 O número de amostras $N$ pode ser estimado para garantir com uma probabilidade $p = 99\%$ que pelo menos uma amostra $s$ estará livre de outliers:
 
@@ -188,7 +188,7 @@ $$
 N = \frac{\log(1 - p)}{\log(1 - (1 - \epsilon)^s)}
 $$
 
-## RANSAC: Número de Amostras III
+## RANSAC: Número de Amostras III {.smaller}
 
 | Tamanho da amostra $s$ | 5% | 10% | 20% | 25% | 30% | 40% | 50% |
 |:---------------:|---:|----:|----:|----:|----:|----:|----:|
