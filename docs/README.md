@@ -9,3 +9,5 @@
 ## [Features Multiescala](./slides/features_multiescala/features_multiescala.html)
 
 ## [Casamento de Descritores](./slides/casamento_descritores/casamento_descritores.html)
+
+## [Homografia](./slides/homografia/homografia.html)
