@@ -1,0 +1,163 @@
+---
+title: "Projeto Final: Ideias"
+bibliography: referencias.bib
+csl: ieee.csl
+link-citations: true
+title-slide-attributes:
+  data-background-image: ../../assets/img/brasao_ufrn_positivo.png
+  data-background-size: "50%, auto, contain"
+  data-background-opacity: "0.05"
+---
+
+## Introdução
+
+Nesta aula, são apresentados alguns tópicos que podem ser objetos
+de estudo para os projetos finais da disciplina
+
+## Requisitos
+
+Como requisitos, o projeto deve:
+
+- Ter o seu fundamento no conteúdo visto na disciplina
+- Não ser uma implementação baseada em modelos de *deep learning*
+- Envolver Visão Robótica 3D
+
+## Avaliação
+
+Você deverá defender o seu projeto. Ou seja, esteja preparado
+para perguntas relacionadas a detalhes de implementação, o que foi usado,
+o que não foi usado, por qual motivo, que outras aplicações estão relacionadas, etc.
+
+## Realidade Aumentada com Marcadores Artificiais
+
+::: {.columns}
+::: {.column width="50%"}
+Detectar um marcador artificial (similar a um QRCode) e projetar
+gráficos 3D sobre ele - inspiração [@garrido2014]
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/9VfhDBCLlW8"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Medição das Dimensões de Objetos em Esteira
+
+Dada uma esteira com vários objetos, detectá-los
+e em seguida medir as suas dimensões.
+
+## Contagem de Pessoas
+
+Dada uma região planar (ex: um corredor de um shopping),
+contar quantas pessoas passam naquela região
+
+## Contagem de Carros
+
+Dada uma região em uma pista delimitada a partir de uma
+câmera de tráfego,
+contar quantos carros passam naquela região
+
+## Rastreamento 3D de Objeto
+
+::: {.columns}
+::: {.column width="50%"}
+Rastrear um objeto (ex: uma bola de tênis) usando componentes conexos
+e desenhar a sua trajetória no espaço 3D com visão estéreo.
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/0cQXU5X0Yyk"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Reconhecimento de Objetos Planares
+
+::: {.columns}
+::: {.column width="50%"}
+Reconhecimento de vários (muitos) objetos planares:
+pode ser capas de livros, caixas de produtos,
+etc - inspiração [@kanik2026]
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/MwG5B2dxink"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Construção de Mosaicos de Imagens
+
+::: {.columns}
+::: {.column width="50%"}
+Construção de mosaicos cilíndricos de imagens
+- inspiração [@brown2007], o vídeo vem de [@lovegrove2010]
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/UtHNeGV-dmU"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Structure from Motion
+
+::: {.columns}
+::: {.column width="50%"}
+Reconstrução 3D a partir de imagens - inspiração: COLMAP [@schoenberger2016]
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/PmXqdfBQxfQ?start=10"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Odometria Visual
+
+::: {.columns}
+::: {.column width="50%"}
+Reconstrução 3D a partir de imagens em tempo real (odometria visual)
+- inspiração: ORB-SLAM [@murartal2015]
+:::
+
+::: {.column width="50%"}
+<iframe style="width:100%; aspect-ratio:16/9;"
+  src="https://www.youtube.com/embed/8DISRmsO2YQ?start=10"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allow="encrypted-media; picture-in-picture" allowfullscreen>
+</iframe>
+:::
+:::
+
+## Próximo Passo
+
+Entregar proposta de projeto. Deve conter:
+
+- Objetivos
+- Dados e equipamentos a serem usados
+- Algoritmos a serem aplicados
+- Data: 12/11, via SIGAA
+
+Converse com os professores caso tenham outras ideias
+
+## Referências
+
+::: {#refs}
+:::
