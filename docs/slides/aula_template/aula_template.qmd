@@ -1,7 +1,7 @@
 ---
 title: "Aula template"
 subtitle: "Elementos para as aulas de Visão Robótica"
-bibliography: ../../referencias.bib
+bibliography: referencias.bib
 title-slide-attributes:
   data-background-image: ../../assets/img/brasao_ufrn_positivo.png
   data-background-size: "50%, auto, contain"
