@@ -254,19 +254,20 @@ $$
 Z\mathbf{x} = K\mathbf{X},
 $$
 
-é possível obter o ponto em coordenadas de câmera dado pela **retroprojeção**, isto é, 
-um ponto que intercepta o plano $Z = 1$ passando pelo pixel $[u,v]^t$
+é possível fazer a **retroprojeção** do pixel $[u,v]^t$, isto é, 
+traçar o raio que sai do centro de projeção, passa por ele
+e intercepta o plano $Z = 1$
 
 ## Geometria de uma Visualização: Retroprojeção II
 
-O ponto retroprojetado é obtido por
+Isolando $\mathbf{X}$, temos 
 
 $$
-\mathbf{X} = ZK^{-1}\mathbf{x}
+\mathbf{X} = ZK^{-1}\mathbf{x},
 $$
 
-fazendo $Z=1$ e expressando o vetor $\mathbf{X}$
-em função das coordenadas de imagem $\mathbf{x}$, obtemos
+ou seja, o ponto $\mathbf{X}$ a menos da sua profundidade $Z$.
+No plano $Z=1$, o ponto retroprojetado é $K^{-1}\mathbf{x}$
 
 ## Geometria de uma Visualização: Retroprojeção III
 
@@ -274,19 +275,18 @@ em função das coordenadas de imagem $\mathbf{x}$, obtemos
 
 ## Geometria de uma Visualização: Retroprojeção IV
 
+$K^{-1}\mathbf{x}$ é então dado por
+
 $$
-\begin{bmatrix} X \\ Y \\ 1 \end{bmatrix} =
+K^{-1}\mathbf{x} =
+\begin{bmatrix} X/Z \\ Y/Z \\ 1 \end{bmatrix} =
 \begin{bmatrix} \dfrac{u - c_x}{f_x} \\[2mm] \dfrac{v - c_y}{f_y} \\[2mm] 1 \end{bmatrix} =
 \begin{bmatrix}
-\frac{1}{f_x}&             0& \frac{-c_x}{f_x}\\ 
-            0& \frac{1}{f_y}& \frac{-c_y}{f_y}\\
-            0&             0&                1
+\frac{1}{f_x} & 0 & \frac{-c_x}{f_x} \\
+0 & \frac{1}{f_y} & \frac{-c_y}{f_y} \\
+0 & 0 & 1
 \end{bmatrix}
-\begin{bmatrix}
-u\\
-v\\
-1
-\end{bmatrix}
+\begin{bmatrix} u \\ v \\ 1 \end{bmatrix}
 $$
 
 ## Geometria de duas Visualizações: Matriz Fundamental I
