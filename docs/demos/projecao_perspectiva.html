@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projeção perspectiva - Visão Robótica</title>
+<style>
+  :root {
+    --painel: rgba(255, 255, 255, 0.92);
+    --borda: #c9c9d1;
+    --texto: #222;
+    --destaque: #7a1f4b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    font-family: "Source Sans Pro", "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto); background: #f4f4f6;
+  }
+  #cena { position: absolute; inset: 0; }
+  #cena canvas { display: block; }
+
+  #painel {
+    position: absolute; top: 10px; left: 10px; width: 235px;
+    padding: 10px 12px; background: var(--painel);
+    border: 1px solid var(--borda); border-radius: 8px;
+    font-size: 13px; line-height: 1.3; user-select: none;
+  }
+  #painel h1 { font-size: 15px; margin: 0 0 8px; color: var(--destaque); }
+  .slider { margin-bottom: 6px; }
+  .slider label { display: flex; justify-content: space-between; }
+  .slider label b { font-variant-numeric: tabular-nums; }
+  .slider input { width: 100%; margin: 2px 0 0; accent-color: var(--destaque); }
+  .linha { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer;
+    border: 1px solid var(--borda); border-radius: 5px; background: #fff;
+  }
+  button.ativo { background: var(--destaque); border-color: var(--destaque); color: #fff; }
+  #matrizK {
+    margin: 8px auto 2px; border-collapse: collapse;
+    font-family: "Cambria Math", "Latin Modern Math", serif; font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  #matrizK td { padding: 1px 7px; text-align: right; }
+  .k-rotulo { text-align: center; font-size: 12px; color: #555; }
+  #info { font-size: 12px; color: #444; margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+  #imagem {
+    position: absolute; right: 10px; bottom: 10px; width: 30%; max-width: 340px; min-width: 200px;
+    background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 6px;
+  }
+  #imagem .titulo { font-size: 12px; color: #444; margin: 0 2px 4px; display: flex; justify-content: space-between; }
+  #imagem canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 3px; }
+
+  #dica {
+    position: absolute; right: 10px; top: 10px; max-width: 45%; text-align: right;
+    font-size: 12px; color: #555; background: rgba(255,255,255,0.75);
+    padding: 3px 8px; border-radius: 5px; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="cena"></div>
+
+<div id="painel">
+  <h1>Projeção perspectiva</h1>
+
+  <div class="slider">
+    <label for="fx"><span>f<sub>x</sub> (px)</span><b id="fx-v"></b></label>
+    <input id="fx" type="range" min="100" max="1500" step="10" value="500">
+  </div>
+  <div class="slider">
+    <label for="fy"><span>f<sub>y</sub> (px)</span><b id="fy-v"></b></label>
+    <input id="fy" type="range" min="100" max="1500" step="10" value="500">
+  </div>
+  <div class="linha">
+    <label><input id="travar" type="checkbox"> f<sub>x</sub> = f<sub>y</sub></label>
+  </div>
+  <div class="slider">
+    <label for="cx"><span>c<sub>x</sub> (px)</span><b id="cx-v"></b></label>
+    <input id="cx" type="range" min="0" max="640" step="1" value="320">
+  </div>
+  <div class="slider">
+    <label for="cy"><span>c<sub>y</sub> (px)</span><b id="cy-v"></b></label>
+    <input id="cy" type="range" min="0" max="480" step="1" value="240">
+  </div>
+
+  <div class="k-rotulo">K =</div>
+  <table id="matrizK">
+    <tr><td id="k00"></td><td>0</td><td id="k02"></td></tr>
+    <tr><td>0</td><td id="k11"></td><td id="k12"></td></tr>
+    <tr><td>0</td><td>0</td><td>1</td></tr>
+  </table>
+
+  <div class="linha">
+    Cubo:
+    <button id="modo-mover" class="ativo">Mover</button>
+    <button id="modo-girar">Girar</button>
+  </div>
+  <div class="linha">
+    <button id="raios" class="ativo">Raios</button>
+    <button id="resetar">Resetar</button>
+  </div>
+  <div id="info"></div>
+</div>
+
+<div id="imagem">
+  <div class="titulo"><span>Imagem gerada</span><span>640 × 480 px</span></div>
+  <canvas id="canvas2d" width="640" height="480"></canvas>
+</div>
+
+<div id="dica">Arrastar o fundo: rotacionar a vista<br>
+               Botão direito do mouse: deslocar a vista<br>
+               Roda do mouse: zoom <br><br>
+               Arraste os eixos do cubo para movê-lo ou girá-lo</div>
+
+<!-- Three.js r187 (MIT) + OrbitControls + TransformControls, empacotados localmente para funcionar sem internet -->
+<script src="lib/three.min.js"></script>
+<script>
+(() => {
+const { OrbitControls, TransformControls } = THREE;
+
+// ---------------------------------------------------------------------------
+// Convenção de coordenadas: sistema da câmera (visão computacional)
+//   X para a direita, Y para baixo, Z para frente (eixo óptico)
+// A cena do Three.js é montada diretamente nesse sistema; o observador usa
+// "up" = -Y para que a imagem fique na orientação esperada.
+// ---------------------------------------------------------------------------
+const W = 640, H = 480;            // resolução da imagem (px)
+const Z_PLANO = 1;                 // plano imagem em coordenadas normalizadas (z = 1)
+const Z_LONGE = 9;                 // alcance do tronco de visão desenhado
+const LADO = 1.2;                  // aresta do cubo
+const POS_INICIAL = new THREE.Vector3(0.3, 0, 4);
+const ROT_INICIAL = new THREE.Euler(0.35, 0.6, 0);
+
+const cores = ['#d62728', '#ff7f0e', '#bcbd22', '#2ca02c', '#17becf', '#1f77b4', '#9467bd', '#e377c2'];
+
+// Parâmetros intrínsecos ------------------------------------------------------
+const K = { fx: 500, fy: 500, cx: 320, cy: 240 };
+
+// Renderizador, cena e observador ---------------------------------------------
+const container = document.getElementById('cena');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xf4f4f6);
+container.appendChild(renderer.domElement);
+
+const cena = new THREE.Scene();
+const observador = new THREE.PerspectiveCamera(45, 1, 0.05, 100);
+observador.up.set(0, -1, 0);
+observador.position.set(-2.0, -2.2, -3.6);
+
+const orbita = new OrbitControls(observador, renderer.domElement);
+orbita.target.set(1.0, -0.1, 2.0);
+orbita.enableDamping = true;
+orbita.update();
+
+cena.add(new THREE.AmbientLight(0xffffff, 0.8));
+const luz = new THREE.DirectionalLight(0xffffff, 0.8);
+luz.position.set(-3, -5, -2);
+cena.add(luz);
+
+// Piso de referência (abaixo da câmera, pois Y aponta para baixo)
+const grade = new THREE.GridHelper(16, 32, 0xb8b8c4, 0xdcdce4);
+grade.position.set(0, 1.6, 3);
+cena.add(grade);
+
+// Rótulos de texto -------------------------------------------------------------
+function rotulo(texto, cor, altura = 0.3, italico = true) {
+  const px = 96;
+  const fonte = `${italico ? 'italic ' : ''}600 ${px}px "Cambria Math", "Times New Roman", serif`;
+  const c = document.createElement('canvas');
+  const medida = c.getContext('2d');
+  medida.font = fonte;
+  c.width = Math.ceil(medida.measureText(texto).width + px * 0.4);
+  c.height = Math.ceil(px * 1.3);
+  const ctx = c.getContext('2d');
+  ctx.font = fonte;
+  ctx.fillStyle = cor;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(texto, c.width / 2, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.scale.set(altura * c.width / c.height, altura, 1);
+  sp.renderOrder = 10;
+  return sp;
+}
+
+// Sistema de coordenadas da câmera ----------------------------------------------
+function eixo(dir, cor, nome) {
+  const seta = new THREE.ArrowHelper(dir, new THREE.Vector3(), 0.9, cor, 0.16, 0.08);
+  cena.add(seta);
+  const r = rotulo(nome, '#' + new THREE.Color(cor).getHexString());
+  r.position.copy(dir.clone().multiplyScalar(1.08));
+  cena.add(r);
+}
+eixo(new THREE.Vector3(1, 0, 0), 0xd62728, 'X');
+eixo(new THREE.Vector3(0, 1, 0), 0x2ca02c, 'Y');
+eixo(new THREE.Vector3(0, 0, 1), 0x1f77b4, 'Z');
+const centro = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 16), new THREE.MeshBasicMaterial({ color: 0x222222 }));
+cena.add(centro);
+const rotC = rotulo('C', '#222222');
+rotC.position.set(-0.22, -0.22, 0);
+cena.add(rotC);
+
+// Tronco de visão e plano imagem ----------------------------------------------
+const matTronco = new THREE.LineBasicMaterial({ color: 0x7a1f4b });
+const matLonge = new THREE.LineDashedMaterial({ color: 0x7a1f4b, dashSize: 0.15, gapSize: 0.1, transparent: true, opacity: 0.45 });
+
+const geoTronco = new THREE.BufferGeometry();
+geoTronco.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * 16), 3));
+const linhasTronco = new THREE.LineSegments(geoTronco, matTronco);
+cena.add(linhasTronco);
+
+const geoLonge = new THREE.BufferGeometry();
+geoLonge.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * 16), 3));
+const linhasLonge = new THREE.LineSegments(geoLonge, matLonge);
+cena.add(linhasLonge);
+
+const geoPlano = new THREE.BufferGeometry();
+geoPlano.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * 4), 3));
+geoPlano.setIndex([0, 1, 2, 0, 2, 3]);
+const plano = new THREE.Mesh(geoPlano, new THREE.MeshBasicMaterial({
+  color: 0x7a1f4b, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false
+}));
+cena.add(plano);
+
+const rotPlano = rotulo('plano imagem (z = 1)', '#7a1f4b', 0.13, false);
+cena.add(rotPlano);
+
+// Ponto principal no plano imagem
+const pontoPrincipal = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 12), new THREE.MeshBasicMaterial({ color: 0x7a1f4b }));
+cena.add(pontoPrincipal);
+
+function cantosNoPlano(z) {
+  // (u, v) dos cantos da imagem -> (x, y, z) com x = (u - cx)/fx * z
+  return [[0, 0], [W, 0], [W, H], [0, H]].map(([u, v]) =>
+    new THREE.Vector3((u - K.cx) / K.fx * z, (v - K.cy) / K.fy * z, z));
+}
+
+function atualizarTronco() {
+  const perto = cantosNoPlano(Z_PLANO);
+  const longe = cantosNoPlano(Z_LONGE);
+  const o = new THREE.Vector3();
+
+  const p = geoTronco.attributes.position;
+  let i = 0;
+  const seg = (a, b) => { p.setXYZ(i++, a.x, a.y, a.z); p.setXYZ(i++, b.x, b.y, b.z); };
+  for (let k = 0; k < 4; k++) seg(o, perto[k]);                 // centro -> cantos
+  for (let k = 0; k < 4; k++) seg(perto[k], perto[(k + 1) % 4]); // borda do plano imagem
+  p.needsUpdate = true;
+  geoTronco.setDrawRange(0, i);
+
+  const q = geoLonge.attributes.position;
+  i = 0;
+  const segL = (a, b) => { q.setXYZ(i++, a.x, a.y, a.z); q.setXYZ(i++, b.x, b.y, b.z); };
+  for (let k = 0; k < 4; k++) segL(perto[k], longe[k]);
+  for (let k = 0; k < 4; k++) segL(longe[k], longe[(k + 1) % 4]);
+  q.needsUpdate = true;
+  geoLonge.setDrawRange(0, i);
+  linhasLonge.computeLineDistances();
+
+  const r = geoPlano.attributes.position;
+  perto.forEach((c, k) => r.setXYZ(k, c.x, c.y, c.z));
+  r.needsUpdate = true;
+  geoPlano.computeBoundingSphere();
+
+  rotPlano.position.set((perto[0].x + perto[1].x) / 2, perto[0].y - 0.1, Z_PLANO);
+  pontoPrincipal.position.set(0, 0, Z_PLANO);
+}
+
+// Cubo --------------------------------------------------------------------------
+const cubo = new THREE.Group();
+cena.add(cubo);
+
+const h = LADO / 2;
+const verticesLocais = [
+  [-h, -h, -h], [h, -h, -h], [h, h, -h], [-h, h, -h],
+  [-h, -h, h], [h, -h, h], [h, h, h], [-h, h, h]
+].map(v => new THREE.Vector3(...v));
+const arestas = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+
+const faces = new THREE.Mesh(
+  new THREE.BoxGeometry(LADO, LADO, LADO),
+  new THREE.MeshLambertMaterial({ color: 0x9aa7c7, transparent: true, opacity: 0.25, depthWrite: false })
+);
+cubo.add(faces);
+cubo.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(LADO, LADO, LADO)),
+  new THREE.LineBasicMaterial({ color: 0x33384a })
+));
+verticesLocais.forEach((v, k) => {
+  const s = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshLambertMaterial({ color: cores[k] }));
+  s.position.copy(v);
+  cubo.add(s);
+});
+
+// Raios de projeção (vértice -> centro óptico) e pontos no plano imagem
+const geoRaios = new THREE.BufferGeometry();
+geoRaios.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * 16), 3));
+geoRaios.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(3 * 16), 3));
+const raios = new THREE.LineSegments(geoRaios, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55 }));
+cena.add(raios);
+
+const projNoPlano = cores.map(c => {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), new THREE.MeshBasicMaterial({ color: c }));
+  cena.add(m);
+  return m;
+});
+
+// Controles do cubo -------------------------------------------------------------
+const gizmo = new TransformControls(observador, renderer.domElement);
+gizmo.attach(cubo);
+gizmo.setSize(0.8);
+cena.add(gizmo.getHelper());
+gizmo.addEventListener('dragging-changed', e => { orbita.enabled = !e.value; });
+gizmo.addEventListener('objectChange', atualizarProjecao);
+
+function resetarCubo() {
+  cubo.position.copy(POS_INICIAL);
+  cubo.rotation.copy(ROT_INICIAL);
+  atualizarProjecao();
+}
+
+// Projeção perspectiva ----------------------------------------------------------
+const canvas2d = document.getElementById('canvas2d');
+const ctx = canvas2d.getContext('2d');
+const info = document.getElementById('info');
+const corTHREE = cores.map(c => new THREE.Color(c));
+
+function projetar(X) {
+  // x = K X  ->  u = fx * X/Z + cx,  v = fy * Y/Z + cy
+  if (X.z <= 1e-3) return null;
+  return { u: K.fx * X.x / X.z + K.cx, v: K.fy * X.y / X.z + K.cy };
+}
+
+function atualizarProjecao() {
+  cubo.updateMatrixWorld(true);
+  const Xs = verticesLocais.map(v => v.clone().applyMatrix4(cubo.matrixWorld));
+  const uv = Xs.map(projetar);
+
+  // 3D: raios e pontos no plano z = 1
+  const p = geoRaios.attributes.position, c = geoRaios.attributes.color;
+  let n = 0;
+  Xs.forEach((X, k) => {
+    const visivel = X.z > 1e-3;
+    projNoPlano[k].visible = visivel && raios.visible;
+    if (!visivel) return;
+    projNoPlano[k].position.set(X.x / X.z * Z_PLANO, X.y / X.z * Z_PLANO, Z_PLANO);
+    p.setXYZ(n, X.x, X.y, X.z); c.setXYZ(n++, corTHREE[k].r, corTHREE[k].g, corTHREE[k].b);
+    p.setXYZ(n, 0, 0, 0);       c.setXYZ(n++, corTHREE[k].r, corTHREE[k].g, corTHREE[k].b);
+  });
+  p.needsUpdate = true; c.needsUpdate = true;
+  geoRaios.setDrawRange(0, n);
+  geoRaios.computeBoundingSphere();
+
+  // 2D: imagem renderizada
+  ctx.fillStyle = '#1c1d24';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let u = 80; u < W; u += 80) { ctx.beginPath(); ctx.moveTo(u, 0); ctx.lineTo(u, H); ctx.stroke(); }
+  for (let v = 80; v < H; v += 80) { ctx.beginPath(); ctx.moveTo(0, v); ctx.lineTo(W, v); ctx.stroke(); }
+
+  // ponto principal
+  ctx.strokeStyle = '#e07ab0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(K.cx - 12, K.cy); ctx.lineTo(K.cx + 12, K.cy);
+  ctx.moveTo(K.cx, K.cy - 12); ctx.lineTo(K.cx, K.cy + 12);
+  ctx.stroke();
+  ctx.fillStyle = '#e07ab0';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('(cx, cy)', K.cx + 8, K.cy - 10);
+
+  // arestas
+  ctx.strokeStyle = '#d9dbe6';
+  ctx.lineWidth = 3;
+  arestas.forEach(([a, b]) => {
+    if (!uv[a] || !uv[b]) return;
+    ctx.beginPath(); ctx.moveTo(uv[a].u, uv[a].v); ctx.lineTo(uv[b].u, uv[b].v); ctx.stroke();
+  });
+
+  // vértices
+  let naImagem = 0;
+  uv.forEach((q, k) => {
+    if (!q) return;
+    if (q.u >= 0 && q.u < W && q.v >= 0 && q.v < H) naImagem++;
+    ctx.fillStyle = cores[k];
+    ctx.beginPath(); ctx.arc(q.u, q.v, 9, 0, 2 * Math.PI); ctx.fill();
+  });
+
+  const cc = cubo.position;
+  info.innerHTML =
+    `Centro do cubo: (${cc.x.toFixed(2)}, ${cc.y.toFixed(2)}, ${cc.z.toFixed(2)})<br>` +
+    `Vértices dentro da imagem: ${naImagem}/8`;
+}
+
+// Interface -----------------------------------------------------------------------
+const el = id => document.getElementById(id);
+const sliders = ['fx', 'fy', 'cx', 'cy'];
+
+function lerSliders(origem) {
+  if (el('travar').checked) {
+    if (origem === 'fy') el('fx').value = el('fy').value;
+    else el('fy').value = el('fx').value;
+  }
+  sliders.forEach(s => {
+    K[s] = Number(el(s).value);
+    el(s + '-v').textContent = K[s];
+  });
+  el('k00').textContent = K.fx; el('k02').textContent = K.cx;
+  el('k11').textContent = K.fy; el('k12').textContent = K.cy;
+  atualizarTronco();
+  atualizarProjecao();
+}
+sliders.forEach(s => el(s).addEventListener('input', () => lerSliders(s)));
+el('travar').addEventListener('change', () => lerSliders('fx'));
+
+function modo(m) {
+  gizmo.setMode(m);
+  el('modo-mover').classList.toggle('ativo', m === 'translate');
+  el('modo-girar').classList.toggle('ativo', m === 'rotate');
+}
+el('modo-mover').addEventListener('click', () => modo('translate'));
+el('modo-girar').addEventListener('click', () => modo('rotate'));
+
+el('raios').addEventListener('click', () => {
+  raios.visible = !raios.visible;
+  el('raios').classList.toggle('ativo', raios.visible);
+  atualizarProjecao();
+});
+
+el('resetar').addEventListener('click', () => {
+  el('fx').value = 500; el('fy').value = 500; el('cx').value = 320; el('cy').value = 240;
+  modo('translate');
+  resetarCubo();
+  lerSliders('fx');
+});
+
+// Integração com o revealjs -------------------------------------------------------
+// Dentro de um iframe, as teclas não chegam ao revealjs. Repassa as teclas de
+// navegação ao slide pai (quando ele for acessível) e devolve o foco a ele.
+const navegacao = { ArrowRight: 'right', ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up',
+                    PageDown: 'next', PageUp: 'prev', ' ': 'next' };
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input')) return;
+  const acao = navegacao[e.key];
+  if (!acao) return;
+  try {
+    const R = window.parent !== window && window.parent.Reveal;
+    if (!R) return;
+    e.preventDefault();
+    window.parent.focus();
+    R[acao]();
+  } catch (_) { /* página pai inacessível (ex.: aberta via file://) */ }
+});
+// Depois de arrastar um slider com o mouse, tira o foco dele para que as setas
+// voltem a navegar entre os slides.
+document.querySelectorAll('input[type=range]').forEach(i => i.addEventListener('pointerup', () => i.blur()));
+
+// Laço de renderização ------------------------------------------------------------
+function redimensionar() {
+  const w = container.clientWidth, hh = container.clientHeight;
+  renderer.setSize(w, hh, false);
+  renderer.domElement.style.width = w + 'px';
+  renderer.domElement.style.height = hh + 'px';
+  observador.aspect = w / hh;
+  observador.updateProjectionMatrix();
+}
+new ResizeObserver(redimensionar).observe(container);
+
+function animar() {
+  orbita.update();
+  renderer.render(cena, observador);
+  requestAnimationFrame(animar);
+}
+
+redimensionar();
+resetarCubo();
+lerSliders('fx');
+animar();
+})();
+</script>
+</body>
+</html>

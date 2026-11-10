@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perspective-n-Point (PnP) - Visão Robótica</title>
+<style>
+  :root {
+    --painel: rgba(255, 255, 255, 0.92);
+    --borda: #c9c9d1;
+    --texto: #222;
+    --destaque: #7a1f4b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    font-family: "Source Sans Pro", "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto); background: #f4f4f6;
+  }
+  #cena { position: absolute; inset: 0; }
+  #cena canvas { display: block; }
+
+  #painel {
+    position: absolute; top: 10px; left: 10px; width: 252px;
+    padding: 10px 12px; background: var(--painel);
+    border: 1px solid var(--borda); border-radius: 8px;
+    font-size: 13px; line-height: 1.3; user-select: none;
+  }
+  #painel h1 { font-size: 15px; margin: 0 0 8px; color: var(--destaque); }
+  .secao { font-size: 12px; color: #555; margin-top: 8px; }
+  .linha { display: flex; gap: 6px; align-items: center; margin: 4px 0 6px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 12px; padding: 3px 7px; cursor: pointer;
+    border: 1px solid var(--borda); border-radius: 5px; background: #fff;
+  }
+  button.ativo { background: var(--destaque); border-color: var(--destaque); color: #fff; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .slider { margin: 4px 0 6px; }
+  .slider label { display: flex; justify-content: space-between; font-size: 12px; }
+  .slider input { width: 100%; margin: 2px 0 0; accent-color: var(--destaque); }
+  .slider.desligado { opacity: 0.4; }
+  .mat { font-family: "Cambria Math", "Latin Modern Math", serif; font-style: italic; }
+  #info { font-size: 12px; color: #444; margin-top: 8px; font-variant-numeric: tabular-nums; border-collapse: collapse; }
+  #info td { padding: 1px 4px 1px 0; vertical-align: top; }
+  #info .aviso { color: #a33; }
+
+  #dica {
+    position: absolute; right: 10px; top: 10px; max-width: 45%; text-align: right;
+    font-size: 12px; color: #555; background: rgba(255,255,255,0.75);
+    padding: 3px 8px; border-radius: 5px; pointer-events: none;
+  }
+  #legenda {
+    position: absolute; right: 10px; bottom: 10px; font-size: 12px; color: #444;
+    background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 10px;
+    pointer-events: none;
+  }
+  #legenda div { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+  #legenda i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
+  #legenda i.traco { width: 18px; height: 0; border-radius: 0; border-top: 2px dashed #1f5f8b; }
+</style>
+</head>
+<body>
+<div id="cena"></div>
+
+<div id="painel">
+  <h1>Perspective-n-Point (PnP)</h1>
+
+  <div class="secao">Câmera <span class="mat">C</span></div>
+  <div class="linha">
+    <button id="modo-mover" class="ativo">Mover</button>
+    <button id="modo-girar">Girar</button>
+  </div>
+
+  <div class="secao">Exibir</div>
+  <div class="linha">
+    <button id="ver-raios" class="ativo">Raios</button>
+    <button id="ver-tronco" class="ativo">Tronco estendido</button>
+  </div>
+
+  <div class="secao">Pose a partir das correspondências 3D-2D</div>
+  <div class="linha">
+    <button id="ver-pnp">Estimar pose</button>
+    <button id="novo-ruido" disabled>Novo ruído</button>
+  </div>
+  <div class="slider desligado" id="bloco-ruido">
+    <label for="ruido"><span>Ruído nas projeções σ (px)</span><b id="ruido-v"></b></label>
+    <input id="ruido" type="range" min="0" max="5" step="0.1" value="1" disabled>
+  </div>
+  <div class="slider desligado" id="bloco-max">
+    <label for="max"><span>Correspondências usadas (máx.)</span><b id="max-v"></b></label>
+    <input id="max" type="range" min="6" max="200" step="1" value="200" disabled>
+  </div>
+  <div class="linha">
+    <button id="resetar">Resetar</button>
+  </div>
+
+  <table id="info"></table>
+</div>
+
+<div id="dica">Arrastar o fundo: rotacionar a vista<br>
+               Botão direito do mouse: deslocar a vista<br>
+               Roda do mouse: zoom <br><br>
+               Arraste os eixos da câmera para movê-la ou girá-la</div>
+
+<div id="legenda">
+  <div><i style="background:#33384a"></i>Ponto da nuvem fora do campo de visão</div>
+  <div><i style="background:#d62728"></i>Ponto projetado na imagem (usado no PnP)</div>
+  <div id="leg-proj" style="display:none"><i style="background:#eeb0b0"></i>Ponto projetado, fora da amostra</div>
+  <div id="leg-est" style="display:none"><i class="traco"></i>Pose estimada <span class="mat">C</span><sub>est</sub></div>
+</div>
+
+<!-- Three.js r187 (MIT) + OrbitControls + TransformControls, empacotados localmente para funcionar sem internet -->
+<script src="lib/three.min.js"></script>
+<script>
+(() => {
+const { OrbitControls, TransformControls } = THREE;
+
+// ---------------------------------------------------------------------------
+// Convenção de coordenadas da câmera (visão computacional):
+//   X para a direita, Y para baixo, Z para frente (eixo óptico)
+// O mundo usa a mesma orientação (Y para baixo); o observador usa "up" = -Y.
+// ---------------------------------------------------------------------------
+const W = 640, H = 480;
+const K = { fx: 500, fy: 500, cx: 320, cy: 240 };
+const D_PLANO = 0.6;      // profundidade em que o plano imagem é desenhado
+const D_TRONCO = 8;       // profundidade até onde o tronco estendido é desenhado
+const MIN_PONTOS = 6;     // mínimo exigido pela DLT usada na estimativa
+
+const COR = {
+  cam: '#7a1f4b',
+  est: '#1f5f8b',
+  ponto: '#33384a',
+  usado: '#d62728',
+  projetado: '#eeb0b0'
+};
+
+const INICIAL = {
+  C: new THREE.Vector3(-1.2, -0.1, 1.2),
+  alvo: new THREE.Vector3(-2.2, 0.9, 4.6)
+};
+
+// Renderizador, cena e observador -------------------------------------------------
+const container = document.getElementById('cena');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xf4f4f6);
+container.appendChild(renderer.domElement);
+
+const cena = new THREE.Scene();
+const observador = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+observador.up.set(0, -1, 0);
+observador.position.set(8, -2.6, 2.2);
+
+const orbita = new OrbitControls(observador, renderer.domElement);
+orbita.target.set(-0.4, 0.5, 3.8);
+orbita.enableDamping = true;
+orbita.update();
+
+cena.add(new THREE.AmbientLight(0xffffff, 0.9));
+const luz = new THREE.DirectionalLight(0xffffff, 0.8);
+luz.position.set(-3, -5, -2);
+cena.add(luz);
+
+const grade = new THREE.GridHelper(20, 40, 0xb8b8c4, 0xdcdce4);
+grade.position.set(0, 1.62, 3);
+cena.add(grade);
+
+// Rótulos de texto -----------------------------------------------------------------
+function rotulo(texto, cor, altura = 0.3, italico = true, indice = '') {
+  const px = 96;
+  const fonte = `${italico ? 'italic ' : ''}600 ${px}px "Cambria Math", "Times New Roman", serif`;
+  const fonteInd = `600 ${Math.round(px * 0.55)}px "Source Sans Pro", Arial, sans-serif`;
+  const c = document.createElement('canvas');
+  const medida = c.getContext('2d');
+  medida.font = fonte;
+  const wT = medida.measureText(texto).width;
+  medida.font = fonteInd;
+  const wI = indice ? medida.measureText(indice).width + px * 0.05 : 0;
+  c.width = Math.ceil(wT + wI + px * 0.4);
+  c.height = Math.ceil(px * 1.3);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = cor;
+  ctx.textBaseline = 'middle';
+  const x0 = (c.width - wT - wI) / 2;
+  ctx.font = fonte;
+  ctx.fillText(texto, x0, c.height / 2);
+  if (indice) { ctx.font = fonteInd; ctx.fillText(indice, x0 + wT + px * 0.05, c.height / 2 + px * 0.28); }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.scale.set(altura * c.width / c.height, altura, 1);
+  sp.renderOrder = 10;
+  return sp;
+}
+
+// Nuvem de pontos ------------------------------------------------------------------------
+// Cena sintética: parede ao fundo, chão, duas caixas e uma coluna (semente fixa).
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const aleatorio = mulberry32(17);
+const unif = (a, b) => a + (b - a) * aleatorio();
+
+const nuvem = [];
+const CHAO = 1.6;
+for (let k = 0; k < 280; k++) nuvem.push(new THREE.Vector3(unif(-4, 4), unif(-1.6, CHAO), 7));          // parede
+for (let k = 0; k < 240; k++) nuvem.push(new THREE.Vector3(unif(-4, 4), CHAO, unif(1.2, 7)));           // chão
+function caixa(cx, cz, lado, altura, n) {
+  const faces = [
+    () => new THREE.Vector3(unif(-1, 1) * lado / 2 + cx, CHAO - unif(0, altura), cz - lado / 2),   // frente
+    () => new THREE.Vector3(cx - lado / 2, CHAO - unif(0, altura), unif(-1, 1) * lado / 2 + cz),   // esquerda
+    () => new THREE.Vector3(cx + lado / 2, CHAO - unif(0, altura), unif(-1, 1) * lado / 2 + cz),   // direita
+    () => new THREE.Vector3(unif(-1, 1) * lado / 2 + cx, CHAO - altura, unif(-1, 1) * lado / 2 + cz) // topo
+  ];
+  for (let k = 0; k < n; k++) nuvem.push(faces[k % 4]());
+}
+caixa(-1.8, 4.0, 1.3, 1.3, 120);
+caixa(1.9, 5.0, 1.6, 2.0, 150);
+for (let k = 0; k < 90; k++) {                                                                          // coluna
+  const a = unif(0, 2 * Math.PI);
+  nuvem.push(new THREE.Vector3(0.3 + 0.35 * Math.cos(a), unif(-1.2, CHAO), 3.0 + 0.35 * Math.sin(a)));
+}
+const N = nuvem.length;
+
+// ruído gaussiano pré-sorteado por ponto (multiplicado por σ), para não "piscar" quando a câmera se move
+let ruidoBase = [];
+function sortearRuido() {
+  const g = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+  ruidoBase = nuvem.map(() => [g(), g()]);
+}
+sortearRuido();
+
+const esfera = new THREE.SphereGeometry(0.035, 10, 10);
+const malhaPontos = new THREE.InstancedMesh(esfera, new THREE.MeshBasicMaterial({ color: 0xffffff }), N);
+malhaPontos.frustumCulled = false;
+cena.add(malhaPontos);
+const corPonto = new THREE.Color(COR.ponto), corUsado = new THREE.Color(COR.usado), corProjetado = new THREE.Color(COR.projetado);
+
+// ordem aleatória fixa, usada para escolher a amostra de correspondências quando há limite
+const ordem = (() => { const o = nuvem.map((_, i) => i); for (let i = N - 1; i > 0; i--) { const j = Math.floor(aleatorio() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } const r = new Array(N); o.forEach((v, k) => { r[v] = k; }); return r; })();
+const auxM = new THREE.Matrix4();
+
+// Raios (ponto → centro de projeção) e interseções com o plano imagem
+const geoRaios = new THREE.BufferGeometry();
+geoRaios.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6 * N), 3));
+const raios = new THREE.LineSegments(geoRaios, new THREE.LineBasicMaterial({ color: COR.usado, transparent: true, opacity: 0.3 }));
+raios.frustumCulled = false;
+cena.add(raios);
+
+const geoProj = new THREE.BufferGeometry();
+geoProj.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(3 * N), 3));
+const projecoes = new THREE.Points(geoProj, new THREE.PointsMaterial({ color: COR.usado, size: 0.03 }));
+projecoes.frustumCulled = false;
+cena.add(projecoes);
+
+// Câmeras ----------------------------------------------------------------------------
+function cantosLocais(z) {
+  return [[0, 0], [W, 0], [W, H], [0, H]].map(([u, v]) =>
+    new THREE.Vector3((u - K.cx) / K.fx * z, (v - K.cy) / K.fy * z, z));
+}
+
+function criarCamera(nome, cor, tracejada, indice = '') {
+  const g = new THREE.Group();
+  cena.add(g);
+
+  const mat = tracejada
+    ? new THREE.LineDashedMaterial({ color: cor, dashSize: 0.06, gapSize: 0.04 })
+    : new THREE.LineBasicMaterial({ color: cor });
+
+  if (!tracejada) {
+    [[new THREE.Vector3(1, 0, 0), 0xd62728], [new THREE.Vector3(0, 1, 0), 0x2ca02c], [new THREE.Vector3(0, 0, 1), 0x1f77b4]]
+      .forEach(([d, c]) => g.add(new THREE.ArrowHelper(d, new THREE.Vector3(), 0.45, c, 0.1, 0.05)));
+  }
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(tracejada ? 0.05 : 0.07, 20, 20), new THREE.MeshLambertMaterial({ color: cor })));
+
+  const r = rotulo(nome, cor, 0.3, true, indice);
+  r.position.set(tracejada ? 0.3 : -0.22, tracejada ? 0.22 : -0.22, 0);
+  g.add(r);
+
+  const cantos = cantosLocais(D_PLANO);
+  const pts = [];
+  cantos.forEach(c => pts.push(new THREE.Vector3(), c));
+  cantos.forEach((c, k) => pts.push(c, cantos[(k + 1) % 4]));
+  const tronco = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), mat);
+  if (tracejada) tronco.computeLineDistances();
+  g.add(tronco);
+
+  if (!tracejada) {
+    const geoPlano = new THREE.BufferGeometry().setFromPoints(cantos);
+    geoPlano.setIndex([0, 1, 2, 0, 2, 3]);
+    g.add(new THREE.Mesh(geoPlano, new THREE.MeshBasicMaterial({
+      color: cor, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false
+    })));
+  }
+  return g;
+}
+
+const camera = criarCamera('C', COR.cam, false);
+const cameraEst = criarCamera('C', COR.est, true, 'est');
+cameraEst.visible = false;
+
+// tronco estendido: arestas do campo de visão até D_TRONCO
+const ext = [];
+cantosLocais(D_TRONCO).forEach(c => ext.push(new THREE.Vector3(), c));
+const cantosLonge = cantosLocais(D_TRONCO);
+cantosLonge.forEach((c, k) => ext.push(c, cantosLonge[(k + 1) % 4]));
+const troncoExt = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ext),
+  new THREE.LineDashedMaterial({ color: COR.cam, dashSize: 0.15, gapSize: 0.12, transparent: true, opacity: 0.45 }));
+troncoExt.computeLineDistances();
+camera.add(troncoExt);
+
+// Gizmo de manipulação --------------------------------------------------------------------
+const gizmo = new TransformControls(observador, renderer.domElement);
+gizmo.setSize(0.75);
+cena.add(gizmo.getHelper());
+gizmo.attach(camera);
+gizmo.addEventListener('dragging-changed', e => { orbita.enabled = !e.value; });
+gizmo.addEventListener('objectChange', atualizar);
+
+// Álgebra linear mínima ---------------------------------------------------------------------
+// autovalores/autovetores de matriz simétrica (método de Jacobi cíclico)
+function jacobiSim(Ain) {
+  const n = Ain.length;
+  const A = Ain.map(l => l.slice());
+  const V = A.map((_, i) => A.map((_, j) => (i === j ? 1 : 0)));
+  for (let varr = 0; varr < 60; varr++) {
+    let fora = 0;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) fora += A[p][q] * A[p][q];
+    if (fora < 1e-22) break;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) {
+      if (Math.abs(A[p][q]) < 1e-300) continue;
+      const th = (A[q][q] - A[p][p]) / (2 * A[p][q]);
+      const t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1));
+      const c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < n; k++) {
+        const akp = A[k][p], akq = A[k][q];
+        A[k][p] = c * akp - s * akq; A[k][q] = s * akp + c * akq;
+      }
+      for (let k = 0; k < n; k++) {
+        const apk = A[p][k], aqk = A[q][k];
+        A[p][k] = c * apk - s * aqk; A[q][k] = s * apk + c * aqk;
+      }
+      for (let k = 0; k < n; k++) {
+        const vkp = V[k][p], vkq = V[k][q];
+        V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq;
+      }
+    }
+  }
+  return { valores: A.map((l, i) => l[i]), vetores: V };   // vetores nas colunas
+}
+
+const det3 = m => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+               - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+               + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+function inv3T(m) {   // (m^-1)^T
+  const d = det3(m);
+  const c = (i, j) => {
+    const a = [0, 1, 2].filter(x => x !== i), b = [0, 1, 2].filter(x => x !== j);
+    return ((i + j) % 2 ? -1 : 1) * (m[a[0]][b[0]] * m[a[1]][b[1]] - m[a[0]][b[1]] * m[a[1]][b[0]]);
+  };
+  return [0, 1, 2].map(i => [0, 1, 2].map(j => c(i, j) / d));
+}
+const mul3 = (A, B) => A.map((l, i) => [0, 1, 2].map(j => l[0] * B[0][j] + l[1] * B[1][j] + l[2] * B[2][j]));
+const transp3 = A => [0, 1, 2].map(i => [0, 1, 2].map(j => A[j][i]));
+const aplicar = (R, t, X) => [0, 1, 2].map(i => R[i][0] * X.x + R[i][1] * X.y + R[i][2] * X.z + t[i]);
+
+function rodrigues(w) {
+  const th = Math.hypot(w[0], w[1], w[2]);
+  if (th < 1e-12) return [[1, -w[2], w[1]], [w[2], 1, -w[0]], [-w[1], w[0], 1]];
+  const [x, y, z] = w.map(v => v / th);
+  const c = Math.cos(th), s = Math.sin(th), C = 1 - c;
+  return [[c + x * x * C, x * y * C - z * s, x * z * C + y * s],
+          [y * x * C + z * s, c + y * y * C, y * z * C - x * s],
+          [z * x * C - y * s, z * y * C + x * s, c + z * z * C]];
+}
+
+function resolver(A, b) {   // eliminação de Gauss com pivotamento parcial
+  const n = b.length;
+  const M = A.map((l, i) => [...l, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    if (Math.abs(M[c][c]) < 1e-15) return null;
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let s = M[r][n];
+    for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k];
+    x[r] = s / M[r][r];
+  }
+  return x;
+}
+
+// PnP: DLT normalizada + refinamento (Levenberg-Marquardt) do erro de reprojeção -------------
+function residuos(R, t, X3, obs) {
+  const r = [];
+  for (let i = 0; i < X3.length; i++) {
+    const p = aplicar(R, t, X3[i]);
+    r.push(K.fx * p[0] / p[2] + K.cx - obs[i][0], K.fy * p[1] / p[2] + K.cy - obs[i][1]);
+  }
+  return r;
+}
+const somaQuad = r => r.reduce((s, v) => s + v * v, 0);
+
+function pnp(X3, obs) {
+  const n = X3.length;
+  // normalização dos pontos 3D (centróide na origem, distância média √3)
+  const mu = new THREE.Vector3();
+  X3.forEach(X => mu.add(X));
+  mu.divideScalar(n);
+  let dm = 0;
+  X3.forEach(X => { dm += X.distanceTo(mu); });
+  const s = Math.sqrt(3) / (dm / n);
+  const Xn = X3.map(X => X.clone().sub(mu).multiplyScalar(s));
+
+  // DLT: para cada correspondência, duas equações lineares em P = [R | t] (12 incógnitas)
+  const AtA = Array.from({ length: 12 }, () => new Array(12).fill(0));
+  for (let i = 0; i < n; i++) {
+    const xn = (obs[i][0] - K.cx) / K.fx, yn = (obs[i][1] - K.cy) / K.fy;
+    const Xh = [Xn[i].x, Xn[i].y, Xn[i].z, 1];
+    const l1 = [...Xh.map(v => -v), 0, 0, 0, 0, ...Xh.map(v => xn * v)];
+    const l2 = [0, 0, 0, 0, ...Xh.map(v => -v), ...Xh.map(v => yn * v)];
+    for (const l of [l1, l2]) for (let a = 0; a < 12; a++) for (let b = 0; b < 12; b++) AtA[a][b] += l[a] * l[b];
+  }
+  const { valores, vetores } = jacobiSim(AtA);
+  let imin = 0;
+  valores.forEach((v, i) => { if (v < valores[imin]) imin = i; });
+  const p = vetores.map(l => l[imin]);
+  let Pn = [p.slice(0, 4), p.slice(4, 8), p.slice(8, 12)];
+
+  // desfaz a normalização: P = Pn T, com T = [sI, -s mu; 0 1]
+  let M = Pn.map(l => [l[0] * s, l[1] * s, l[2] * s]);
+  let p4 = Pn.map(l => l[3] - s * (l[0] * mu.x + l[1] * mu.y + l[2] * mu.z));
+  if (det3(M) < 0) { M = M.map(l => l.map(v => -v)); p4 = p4.map(v => -v); }
+
+  // projeta M em SO(3) (fator ortogonal da decomposição polar) e recupera a escala
+  let R = M;
+  for (let k = 0; k < 30; k++) {
+    const It = inv3T(R);
+    R = R.map((l, i) => l.map((v, j) => 0.5 * (v + It[i][j])));
+  }
+  const escala = [0, 1, 2].reduce((acc, i) => acc + R[0][i] * M[0][i] + R[1][i] * M[1][i] + R[2][i] * M[2][i], 0) / 3;
+  let t = p4.map(v => v / escala);
+
+  // refinamento: minimiza o erro de reprojeção em pixels (6 parâmetros: rotação e translação)
+  let erro = somaQuad(residuos(R, t, X3, obs));
+  let lambda = 1e-3;
+  for (let it = 0; it < 15; it++) {
+    const r0 = residuos(R, t, X3, obs);
+    const J = [];
+    const h = 1e-6;
+    for (let k = 0; k < 6; k++) {
+      const d = [0, 0, 0, 0, 0, 0]; d[k] = h;
+      const Rk = mul3(rodrigues(d.slice(0, 3)), R);
+      const tk = t.map((v, i) => v + d[3 + i]);
+      J.push(residuos(Rk, tk, X3, obs).map((v, i) => (v - r0[i]) / h));
+    }
+    const JtJ = J.map(a => J.map(b => a.reduce((acc, v, i) => acc + v * b[i], 0)));
+    const Jtr = J.map(a => a.reduce((acc, v, i) => acc + v * r0[i], 0));
+    let melhorou = false;
+    for (let tent = 0; tent < 8 && !melhorou; tent++) {
+      const Aa = JtJ.map((l, i) => l.map((v, j) => (i === j ? v * (1 + lambda) : v)));
+      const d = resolver(Aa, Jtr.map(v => -v));
+      if (!d) break;
+      const Rn = mul3(rodrigues(d.slice(0, 3)), R);
+      const tn = t.map((v, i) => v + d[3 + i]);
+      const en = somaQuad(residuos(Rn, tn, X3, obs));
+      if (en < erro) { R = Rn; t = tn; erro = en; lambda *= 0.3; melhorou = true; }
+      else lambda *= 10;
+    }
+    if (!melhorou) break;
+  }
+  return { R, t, rms: Math.sqrt(erro / n) };
+}
+
+// Atualização da cena -------------------------------------------------------------------------
+let verRaios = true, verTronco = true, verPnP = false, sigma = 1, maxUsados = Infinity;
+let ultimo = null;
+
+function atualizar() {
+  camera.updateMatrixWorld(true);
+  const C = camera.position.clone();
+  const inv = camera.matrixWorld.clone().invert();
+
+  // 1) quais pontos são projetados dentro da imagem
+  const vis = [];
+  for (let i = 0; i < N; i++) {
+    const Xl = nuvem[i].clone().applyMatrix4(inv);
+    if (Xl.z <= 1e-3) continue;
+    const u = K.fx * Xl.x / Xl.z + K.cx, v = K.fy * Xl.y / Xl.z + K.cy;
+    if (u >= 0 && u < W && v >= 0 && v < H) vis.push({ i, u, v, z: Xl.z });
+  }
+  const nv = vis.length;
+
+  // 2) quais deles entram no PnP (amostra fixa, sorteada uma vez, quando há limite)
+  const limitado = verPnP && maxUsados < nv;
+  const usados = limitado ? vis.slice().sort((a, b) => ordem[a.i] - ordem[b.i]).slice(0, maxUsados) : vis;
+  const estado = new Uint8Array(N);              // 0: fora, 1: projetado (não usado), 2: usado
+  vis.forEach(p => { estado[p.i] = 1; });
+  usados.forEach(p => { estado[p.i] = 2; });
+
+  const posR = geoRaios.attributes.position, posP = geoProj.attributes.position;
+  const usados3 = [], usadosObs = [];
+  usados.forEach((p, k) => {
+    const Xw = nuvem[p.i];
+    posR.setXYZ(2 * k, Xw.x, Xw.y, Xw.z);
+    posR.setXYZ(2 * k + 1, C.x, C.y, C.z);
+    const q = C.clone().lerp(Xw, D_PLANO / p.z);     // interseção do raio com o plano imagem desenhado
+    posP.setXYZ(k, q.x, q.y, q.z);
+    usados3.push(Xw);
+    usadosObs.push([p.u + sigma * ruidoBase[p.i][0], p.v + sigma * ruidoBase[p.i][1]]);
+  });
+  for (let i = 0; i < N; i++) {
+    const esc = estado[i] === 2 ? 1.35 : 1;
+    auxM.makeScale(esc, esc, esc).setPosition(nuvem[i]);
+    malhaPontos.setMatrixAt(i, auxM);
+    malhaPontos.setColorAt(i, [corPonto, corProjetado, corUsado][estado[i]]);
+  }
+  malhaPontos.instanceMatrix.needsUpdate = true;
+  malhaPontos.instanceColor.needsUpdate = true;
+  posR.needsUpdate = true; posP.needsUpdate = true;
+  geoRaios.setDrawRange(0, 2 * usados.length);
+  geoProj.setDrawRange(0, usados.length);
+  raios.visible = projecoes.visible = verRaios;
+  troncoExt.visible = verTronco;
+  el('leg-proj').style.display = limitado ? '' : 'none';
+
+  ultimo = { nv, nu: usados.length, est: null };
+  cameraEst.visible = false;
+  if (verPnP && usados.length >= MIN_PONTOS) {
+    const { R, t, rms } = pnp(usados3, usadosObs);
+    // pose estimada (mundo → câmera) convertida para câmera → mundo: R_wc = Rᵀ, C_est = −Rᵀ t
+    const Rwc = transp3(R);
+    const Cest = new THREE.Vector3(...[0, 1, 2].map(i => -(Rwc[i][0] * t[0] + Rwc[i][1] * t[1] + Rwc[i][2] * t[2])));
+    const m = new THREE.Matrix4().set(
+      Rwc[0][0], Rwc[0][1], Rwc[0][2], Cest.x,
+      Rwc[1][0], Rwc[1][1], Rwc[1][2], Cest.y,
+      Rwc[2][0], Rwc[2][1], Rwc[2][2], Cest.z,
+      0, 0, 0, 1);
+    m.decompose(cameraEst.position, cameraEst.quaternion, cameraEst.scale);
+    cameraEst.visible = true;
+
+    const qErro = cameraEst.quaternion.clone().invert().multiply(camera.quaternion);
+    const angulo = 2 * Math.acos(Math.min(1, Math.abs(qErro.w))) * 180 / Math.PI;
+    const naFrente = usados3.filter(X => aplicar(R, t, X)[2] > 0).length;
+    ultimo.est = { rms, angulo, dist: Cest.distanceTo(C), invalida: naFrente < usados3.length / 2 };
+  }
+  atualizarInfo();
+}
+
+// Painel -------------------------------------------------------------------------------------
+const el = id => document.getElementById(id);
+function atualizarInfo() {
+  const { nv, est } = ultimo;
+  let html = `<tr><td>Pontos projetados</td><td><b>${nv}</b> de ${N}</td></tr>`;
+  if (verPnP) {
+    html += `<tr><td>Usados no PnP</td><td><b>${ultimo.nu}</b></td></tr>`;
+    if (ultimo.nu < MIN_PONTOS) {
+      html += `<tr><td colspan="2" class="aviso">Pontos insuficientes: esta estimativa (DLT) exige pelo menos ${MIN_PONTOS} correspondências</td></tr>`;
+    } else if (est) {
+      html += `<tr><td>Erro de reprojeção</td><td>${est.rms.toFixed(2)} px (RMS)</td></tr>` +
+              `<tr><td>Erro de rotação</td><td>${est.angulo.toFixed(2)}°</td></tr>` +
+              `<tr><td>Erro de posição</td><td>‖<span class="mat">C</span><sub>est</sub> <span class="mat">− C</span>‖ = ${est.dist.toFixed(3)}</td></tr>`;
+      if (est.invalida) html += `<tr><td colspan="2" class="aviso">Solução inválida: os pontos ficaram atrás de <span class="mat">C</span><sub>est</sub>. Com tão poucas correspondências ruidosas, a DLT fica instável</td></tr>`;
+    }
+  }
+  el('info').innerHTML = html;
+}
+
+function modo(m) {
+  gizmo.setMode(m);
+  el('modo-mover').classList.toggle('ativo', m === 'translate');
+  el('modo-girar').classList.toggle('ativo', m === 'rotate');
+}
+el('modo-mover').addEventListener('click', () => modo('translate'));
+el('modo-girar').addEventListener('click', () => modo('rotate'));
+
+el('ver-raios').addEventListener('click', () => {
+  verRaios = !verRaios;
+  el('ver-raios').classList.toggle('ativo', verRaios);
+  atualizar();
+});
+el('ver-tronco').addEventListener('click', () => {
+  verTronco = !verTronco;
+  el('ver-tronco').classList.toggle('ativo', verTronco);
+  atualizar();
+});
+el('ver-pnp').addEventListener('click', () => {
+  verPnP = !verPnP;
+  el('ver-pnp').classList.toggle('ativo', verPnP);
+  el('novo-ruido').disabled = !verPnP;
+  el('ruido').disabled = !verPnP;
+  el('bloco-ruido').classList.toggle('desligado', !verPnP);
+  el('max').disabled = !verPnP;
+  el('bloco-max').classList.toggle('desligado', !verPnP);
+  el('leg-est').style.display = verPnP ? '' : 'none';
+  atualizar();
+});
+el('novo-ruido').addEventListener('click', () => { sortearRuido(); atualizar(); });
+function lerRuido() {
+  sigma = parseFloat(el('ruido').value);
+  el('ruido-v').textContent = sigma.toFixed(1);
+}
+el('ruido').addEventListener('input', () => { lerRuido(); atualizar(); });
+el('ruido').addEventListener('pointerup', () => el('ruido').blur());
+function lerMax() {
+  const v = parseInt(el('max').value, 10);
+  maxUsados = v >= parseInt(el('max').max, 10) ? Infinity : v;
+  el('max-v').textContent = maxUsados === Infinity ? 'todas' : v;
+}
+el('max').addEventListener('input', () => { lerMax(); atualizar(); });
+el('max').addEventListener('pointerup', () => el('max').blur());
+
+function resetar() {
+  camera.position.copy(INICIAL.C);
+  camera.lookAt(INICIAL.alvo);
+  modo('translate');
+  atualizar();
+}
+el('resetar').addEventListener('click', resetar);
+
+// Integração com o revealjs -------------------------------------------------------------------
+// Dentro de um iframe, as teclas não chegam ao revealjs. Repassa as teclas de
+// navegação ao slide pai (quando ele for acessível) e devolve o foco a ele.
+const navegacao = { ArrowRight: 'right', ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up',
+                    PageDown: 'next', PageUp: 'prev', ' ': 'next' };
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input')) return;
+  const acao = navegacao[e.key];
+  if (!acao) return;
+  try {
+    const R = window.parent !== window && window.parent.Reveal;
+    if (!R) return;
+    e.preventDefault();
+    window.parent.focus();
+    R[acao]();
+  } catch (_) { /* página pai inacessível (ex.: aberta via file://) */ }
+});
+
+// Laço de renderização ------------------------------------------------------------------------
+function redimensionar() {
+  const w = container.clientWidth, hh = container.clientHeight;
+  renderer.setSize(w, hh, false);
+  renderer.domElement.style.width = w + 'px';
+  renderer.domElement.style.height = hh + 'px';
+  observador.aspect = w / hh;
+  observador.updateProjectionMatrix();
+}
+new ResizeObserver(redimensionar).observe(container);
+
+function animar() {
+  orbita.update();
+  renderer.render(cena, observador);
+  requestAnimationFrame(animar);
+}
+
+lerRuido();
+lerMax();
+redimensionar();
+resetar();
+animar();
+})();
+</script>
+</body>
+</html>

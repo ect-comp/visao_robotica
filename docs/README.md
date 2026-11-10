@@ -13,3 +13,5 @@
 ## [Homografia](./slides/homografia/homografia.html)
 
 ## [RANSAC](./slides/ransac/ransac.html)
+
+## [SfM I](./slides/estrutura_a_partir_do_movimento1/estrutura_a_partir_do_movimento1.html)
