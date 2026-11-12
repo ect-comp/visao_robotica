@@ -1,5 +1,5 @@
 ---
-title: "Estrutura a partir do Movimento 2"
+title: "Estrutura a partir do Movimento II"
 bibliography: referencias.bib
 title-slide-attributes:
   data-background-image: ../../assets/img/brasao_ufrn_positivo.png
