@@ -1,5 +1,5 @@
 ---
-title: "Estrutura a partir do Movimento"
+title: "Estrutura a partir do Movimento I"
 bibliography: referencias.bib
 title-slide-attributes:
   data-background-image: ../../assets/img/brasao_ufrn_positivo.png
@@ -420,7 +420,7 @@ A matriz essencial pode ser computada a partir de 5 correspondências:
 A pose relativa de câmera (rotação e translação) que relaciona o sistema de coordenadas da 1ª câmera com o sistema da 2ª pode ser recuperada a partir da matriz $E$:
 
 - Realizada a partir de uma fatoração de $E$
-- **Importante:** a translação $t$ é recuperada a menos de um fator de escala
+- **Importante:** a translação $\mathbf{t}$ sempre terá norma unitária
 - A solução é dada pela decomposição em valores singulares de $E$
 
 ## Matriz Essencial: Extração da Pose II {.smaller}
@@ -586,6 +586,12 @@ A solução é novamente computada com SVD.
   - A norma do vetor translação (dada por algum outro sensor)
   - Objeto 3D com dimensões conhecida
 - Assim, os pontos 3D reconstruídos estarão em uma escala coerente entre si, proporcional à *linha de base* (distância) entre as câmeras
+
+## Reconstrução 3D com Duas Visualizações {.nostretch}
+
+<video autoplay loop muted playsinline style="display: block; margin: 0 auto; width: 80%; height: 80%; object-fit: contain;">
+  <source src="img/reconstrucao_duas_imagens.mp4" type="video/mp4">
+</video>
 
 ## Reconstrução 3D com Duas Visualizações: OpenCV
 
