@@ -17,3 +17,5 @@
 ## [SfM I](./slides/estrutura_a_partir_do_movimento1/estrutura_a_partir_do_movimento1.html)
 
 ## [SfM II](./slides/estrutura_a_partir_do_movimento2/estrutura_a_partir_do_movimento2.html)
+
+## [Visão Estéreo](./slides/visao_estereo/visao_estereo.html)
