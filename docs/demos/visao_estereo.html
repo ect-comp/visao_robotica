@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visão estéreo - Visão Robótica</title>
+<style>
+  :root {
+    --painel: rgba(255, 255, 255, 0.92);
+    --borda: #c9c9d1;
+    --texto: #222;
+    --destaque: #7a1f4b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    font-family: "Source Sans Pro", "Helvetica Neue", Arial, sans-serif;
+    color: var(--texto); background: #f4f4f6;
+  }
+  #cena { position: absolute; inset: 0; }
+  #cena canvas { display: block; }
+
+  #painel {
+    position: absolute; top: 10px; left: 10px; width: 238px; max-height: calc(100% - 20px); overflow-y: auto;
+    padding: 9px 11px; background: var(--painel);
+    border: 1px solid var(--borda); border-radius: 8px;
+    font-size: 13px; line-height: 1.25; user-select: none;
+  }
+  #painel h1 { font-size: 15px; margin: 0 0 2px; color: var(--destaque); }
+  .secao { font-size: 12px; color: #555; margin-top: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .linha { display: flex; gap: 5px; align-items: center; margin: 3px 0 4px; flex-wrap: wrap; }
+  .slider { margin: 1px 0 2px; }
+  .slider label { display: flex; justify-content: space-between; font-size: 12px; }
+  .slider label b { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .slider input { width: 100%; margin: 1px 0 0; accent-color: var(--destaque); height: 14px; }
+  .slider.desligado { opacity: 0.4; }
+  .marcar { font-size: 12px; display: flex; gap: 4px; align-items: center; }
+  .marcar input { accent-color: var(--destaque); margin: 0; }
+  button {
+    font: inherit; font-size: 12px; padding: 2px 7px; cursor: pointer;
+    border: 1px solid var(--borda); border-radius: 5px; background: #fff;
+  }
+  button.ativo { background: var(--destaque); border-color: var(--destaque); color: #fff; }
+  .mat { font-family: "Cambria Math", "Latin Modern Math", serif; font-style: italic; }
+  #info { font-size: 12px; color: #444; margin-top: 6px; font-variant-numeric: tabular-nums; border-collapse: collapse; }
+  #info td { padding: 1px 6px 1px 0; vertical-align: top; }
+  #avisos { font-size: 11.5px; color: #a33; margin-top: 4px; }
+  #avisos div { margin-top: 3px; }
+
+  #imagens {
+    position: absolute; right: 10px; bottom: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    width: 44%; max-width: 600px; min-width: 340px;
+  }
+  .imagem {
+    background: var(--painel); border: 1px solid var(--borda); border-radius: 8px; padding: 4px 5px 5px;
+  }
+  .imagem .titulo { font-size: 11.5px; color: #444; margin: 0 2px 3px; display: flex; justify-content: space-between; gap: 4px; white-space: nowrap; }
+  .imagem canvas { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 3px; }
+  .clicavel canvas { cursor: crosshair; }
+
+  #dica {
+    position: absolute; right: 10px; top: 10px; max-width: 40%; text-align: right;
+    font-size: 12px; color: #555; background: rgba(255,255,255,0.75);
+    padding: 3px 8px; border-radius: 5px; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="cena"></div>
+
+<div id="painel">
+  <h1>Visão estéreo</h1>
+
+  <div class="slider">
+    <label for="B"><span>Linha de base <span class="mat">B</span> (m)</span><b id="B-v"></b></label>
+    <input id="B" type="range" min="0.1" max="1.5" step="0.05" value="0.5">
+  </div>
+
+  <div class="secao"><span>Intrínsecos da câmera</span></div>
+  <div class="linha">
+    <button id="cam-L" class="ativo">Esquerda</button>
+    <button id="cam-R">Direita</button>
+    <label class="marcar"><input id="iguais" type="checkbox" checked> iguais</label>
+  </div>
+  <div class="slider" id="b-fx">
+    <label for="fx"><span><span class="mat">f<sub>x</sub></span> (px)</span><b id="fx-v"></b></label>
+    <input id="fx" type="range" min="250" max="1200" step="10" value="500">
+  </div>
+  <div class="slider" id="b-fy">
+    <label for="fy"><span><span class="mat">f<sub>y</sub></span> (px)</span><b id="fy-v"></b></label>
+    <input id="fy" type="range" min="250" max="1200" step="10" value="500">
+  </div>
+  <div class="slider" id="b-cx">
+    <label for="cx"><span><span class="mat">c<sub>x</sub></span> (px)</span><b id="cx-v"></b></label>
+    <input id="cx" type="range" min="200" max="440" step="1" value="320">
+  </div>
+  <div class="slider" id="b-cy">
+    <label for="cy"><span><span class="mat">c<sub>y</sub></span> (px)</span><b id="cy-v"></b></label>
+    <input id="cy" type="range" min="140" max="340" step="1" value="240">
+  </div>
+
+  <div class="secao"><span>Disparidade</span></div>
+  <div class="linha">
+    <button id="m-ideal" class="ativo">Ideal</button>
+    <button id="m-bm">Block matching</button>
+  </div>
+  <div class="slider desligado" id="b-nd">
+    <label for="nd"><span>numDisparities</span><b id="nd-v"></b></label>
+    <input id="nd" type="range" min="16" max="256" step="16" value="128" disabled>
+  </div>
+  <div class="slider desligado" id="b-bs">
+    <label for="bs"><span>blockSize</span><b id="bs-v"></b></label>
+    <input id="bs" type="range" min="5" max="31" step="2" value="11" disabled>
+  </div>
+
+  <div class="secao"><span>Exibir</span></div>
+  <div class="linha">
+    <button id="ver-linhas" class="ativo">Linhas horizontais</button>
+    <button id="ver-real">Profundidade real</button>
+    <button id="resetar">Resetar</button>
+  </div>
+
+  <table id="info"></table>
+  <div id="avisos"></div>
+</div>
+
+<div id="imagens">
+  <div class="imagem clicavel">
+    <div class="titulo"><span>Câmera esquerda</span><span>640 × 480 px</span></div>
+    <canvas id="imgL" width="640" height="480"></canvas>
+  </div>
+  <div class="imagem">
+    <div class="titulo"><span>Câmera direita</span><span>640 × 480 px</span></div>
+    <canvas id="imgR" width="640" height="480"></canvas>
+  </div>
+  <div class="imagem clicavel">
+    <div class="titulo"><span id="t-disp">Disparidade</span><span id="t-disp2"></span></div>
+    <canvas id="imgD" width="640" height="480"></canvas>
+  </div>
+  <div class="imagem clicavel">
+    <div class="titulo"><span id="t-prof">Profundidade</span><span id="t-prof2"></span></div>
+    <canvas id="imgZ" width="640" height="480"></canvas>
+  </div>
+</div>
+
+<div id="dica">Arrastar o fundo: rotacionar a vista<br>
+               Botão direito do mouse: deslocar a vista<br>
+               Roda do mouse: zoom<br><br>
+               Clique na imagem esquerda, na disparidade<br>
+               ou na profundidade para escolher um pixel</div>
+
+<!-- Three.js r187 (MIT) + OrbitControls, empacotados localmente para funcionar sem internet -->
+<script src="lib/three.min.js"></script>
+<script>
+(() => {
+const { OrbitControls } = THREE;
+
+// ---------------------------------------------------------------------------
+// Convenção de coordenadas de cada câmera (visão computacional):
+//   X para a direita, Y para baixo, Z para frente (eixo óptico)
+// O mundo usa a mesma orientação (Y para baixo); o observador usa "up" = -Y.
+// Par estéreo estático, câmeras com a mesma orientação (eixos ópticos paralelos),
+// câmera esquerda na origem e câmera direita deslocada de B (linha de base) ao longo de X.
+// Sem distorção de lente: as imagens já correspondem a câmeras ideais (pinhole).
+// ---------------------------------------------------------------------------
+const W = 640, H = 480, N_PIX = W * H;
+const D_PLANO = 0.45;             // profundidade em que o plano imagem é desenhado na cena 3D
+const Z_MIN = 1, Z_MAX = 12;      // faixa do mapa de cores da profundidade
+const UNICIDADE = 0.15;           // uniquenessRatio (15%) do block matching
+
+const COR = { L: '#7a1f4b', R: '#1f5f8b', ponto: '#e07b00', base: '#222222' };
+
+const INICIAL = {
+  B: 0.5,
+  K: { fx: 500, fy: 500, cx: 320, cy: 240 },
+  nd: 128, bs: 11,
+  pixel: [398, 318]
+};
+
+const estado = {
+  B: INICIAL.B,
+  K: { L: { ...INICIAL.K }, R: { ...INICIAL.K } },
+  editando: 'L', iguais: true,
+  modo: 'ideal', nd: INICIAL.nd, bs: INICIAL.bs,
+  verLinhas: true, verReal: false,
+  pixel: INICIAL.pixel.slice()
+};
+
+// Gerador pseudoaleatório determinístico (texturas iguais a cada carregamento)
+function prng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+// Renderizador, cena e observador -------------------------------------------------
+const container = document.getElementById('cena');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0xf4f4f6);
+container.appendChild(renderer.domElement);
+
+const cena = new THREE.Scene();
+const observador = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+observador.up.set(0, -1, 0);
+observador.layers.enable(1);           // camada 1: elementos auxiliares (não aparecem nas imagens das câmeras)
+
+const orbita = new OrbitControls(observador, renderer.domElement);
+orbita.enableDamping = true;
+
+cena.add(new THREE.AmbientLight(0xffffff, 1.0));
+const luz = new THREE.DirectionalLight(0xffffff, 1.6);
+luz.position.set(-4, -8, -3);
+cena.add(luz);
+
+// Objetos da cena (camada 0: vistos pelas câmeras do par estéreo) -----------------------
+function textura(seed, base, cores, n, tam = 256, repetir = 1) {
+  const r = prng(seed);
+  const c = document.createElement('canvas'); c.width = c.height = tam;
+  const g = c.getContext('2d');
+  g.fillStyle = base; g.fillRect(0, 0, tam, tam);
+  for (let k = 0; k < n; k++) {
+    g.fillStyle = cores[Math.floor(r() * cores.length)];
+    g.globalAlpha = 0.5 + 0.5 * r();
+    const s = 4 + r() * tam / 7;
+    if (r() < 0.5) g.fillRect(r() * tam, r() * tam, s, s * (0.4 + r()));
+    else { g.beginPath(); g.arc(r() * tam, r() * tam, s / 2, 0, 2 * Math.PI); g.fill(); }
+  }
+  g.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repetir, repetir);
+  t.anisotropy = 4;
+  return t;
+}
+const mat = (tex, cor = 0xffffff) => new THREE.MeshLambertMaterial({ map: tex, color: cor });
+
+const chao = new THREE.Mesh(new THREE.PlaneGeometry(20, 14),
+  mat(textura(1, '#9a8f7e', ['#6f6555', '#b8ad99', '#857a68', '#c9bfae', '#5d5446'], 900, 256, 6)));
+chao.rotation.x = Math.PI / 2;                 // normal apontando para -Y (para cima)
+chao.position.set(0, 1.2, 6);
+const parede = new THREE.Mesh(new THREE.PlaneGeometry(24, 11),
+  mat(textura(2, '#c9d3dc', ['#8fa3b5', '#e8edf2', '#6d8296', '#b4c2cf', '#d9a066'], 700, 256, 4)));
+parede.rotation.x = Math.PI;                   // voltada para as câmeras
+parede.position.set(0, -4.3, 12.5);
+
+const caixa1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8),
+  mat(textura(3, '#c0392b', ['#7b1f16', '#f0c419', '#ffffff', '#2c3e50', '#e67e22'], 160)));
+caixa1.position.set(-0.9, 0.8, 3.0);
+caixa1.rotation.y = 0.5;
+
+const esfera = new THREE.Mesh(new THREE.SphereGeometry(0.5, 48, 32), new THREE.MeshLambertMaterial({ color: 0x3f8f5f }));
+esfera.position.set(0.7, 0.7, 4.5);           // sem textura: difícil para o block matching
+
+const cilindro = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.6, 48),
+  mat(textura(4, '#2e86c1', ['#1b4f72', '#aed6f1', '#f4d03f', '#ffffff', '#154360'], 220)));
+cilindro.position.set(1.9, 0.4, 7.0);
+
+const caixa2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 0.6),
+  mat(textura(5, '#8e44ad', ['#4a235a', '#d2b4de', '#f5b041', '#ffffff', '#1abc9c'], 200)));
+caixa2.position.set(-2.3, 0.3, 8.0);
+caixa2.rotation.y = -0.35;
+
+const cone = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.2, 4),
+  mat(textura(6, '#d35400', ['#873600', '#fad7a0', '#ffffff', '#1c2833'], 150)));
+cone.rotation.x = Math.PI;                     // ponta para cima (−Y)
+cone.position.set(0.0, 0.6, 9.8);
+
+cena.add(chao, parede, caixa1, esfera, cilindro, caixa2, cone);
+
+// Câmeras do par estéreo (renderização das imagens) -------------------------------------
+function projecaoK(K) {
+  // matriz de projeção OpenGL equivalente a K para uma imagem W x H
+  // (câmera do three.js: x direita, y cima, olhando para -z)
+  const n = 0.05, f = 100;
+  const P = new THREE.Matrix4();
+  P.set(2 * K.fx / W, 0, 1 - 2 * K.cx / W, 0,
+        0, 2 * K.fy / H, 2 * K.cy / H - 1, 0,
+        0, 0, -(f + n) / (f - n), -2 * f * n / (f - n),
+        0, 0, -1, 0);
+  return P;
+}
+function criarCamImagem() {
+  const c = new THREE.Camera();
+  c.rotation.x = Math.PI;                       // -z do three.js = +Z do mundo; +y do three.js = -Y do mundo
+  cena.add(c);
+  return c;
+}
+const camImg = { L: criarCamImagem(), R: criarCamImagem() };
+
+const alvoCor = new THREE.WebGLRenderTarget(W, H, { samples: 4 });
+alvoCor.texture.colorSpace = THREE.SRGBColorSpace;
+const alvoProf = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType });
+const matProf = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  vertexShader: 'varying float vZ; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vZ = -mv.z; gl_Position = projectionMatrix * mv; }',
+  fragmentShader: 'varying float vZ; void main(){ gl_FragColor = vec4(vZ, 0.0, 0.0, 1.0); }'
+});
+
+const buf8 = new Uint8Array(N_PIX * 4);
+const buf32 = new Float32Array(N_PIX * 4);
+const img = { L: new ImageData(W, H), R: new ImageData(W, H) };
+const cinza = { L: new Float32Array(N_PIX), R: new Float32Array(N_PIX) };
+const prof = { L: new Float32Array(N_PIX), R: new Float32Array(N_PIX) };   // Z verdadeiro (0 = fundo)
+
+function renderizarCamera(lado) {
+  const c = camImg[lado], K = estado.K[lado];
+  c.position.set(lado === 'L' ? 0 : estado.B, 0, 0);
+  c.updateMatrixWorld(true);
+  c.projectionMatrix.copy(projecaoK(K));
+  c.projectionMatrixInverse.copy(c.projectionMatrix).invert();
+
+  const corFundo = renderer.getClearColor(new THREE.Color()), alfaFundo = renderer.getClearAlpha();
+
+  renderer.setRenderTarget(alvoCor);
+  renderer.setClearColor(0xdfe9f2, 1);
+  renderer.clear();
+  renderer.render(cena, c);
+  renderer.readRenderTargetPixels(alvoCor, 0, 0, W, H, buf8);
+  const d = img[lado].data, g = cinza[lado];
+  for (let y = 0; y < H; y++) {
+    const src = (H - 1 - y) * W * 4, dst = y * W * 4;     // WebGL lê de baixo para cima
+    for (let x = 0; x < W * 4; x++) d[dst + x] = buf8[src + x];
+    for (let x = 0; x < W; x++) {
+      const k = dst + 4 * x;
+      g[y * W + x] = 0.299 * d[k] + 0.587 * d[k + 1] + 0.114 * d[k + 2];
+    }
+  }
+
+  cena.overrideMaterial = matProf;
+  renderer.setRenderTarget(alvoProf);
+  renderer.setClearColor(0x000000, 0);
+  renderer.clear();
+  renderer.render(cena, c);
+  cena.overrideMaterial = null;
+  renderer.readRenderTargetPixels(alvoProf, 0, 0, W, H, buf32);
+  const z = prof[lado];
+  for (let y = 0; y < H; y++) {
+    const src = (H - 1 - y) * W;
+    for (let x = 0; x < W; x++) z[y * W + x] = buf32[4 * (src + x)];
+  }
+
+  renderer.setRenderTarget(null);
+  renderer.setClearColor(corFundo, alfaFundo);
+}
+
+// Disparidade ---------------------------------------------------------------------------
+const disp = new Float32Array(N_PIX);         // NaN = sem correspondência válida
+const ocluso = new Uint8Array(N_PIX);
+
+function disparidadeIdeal() {
+  // correspondência verdadeira: projeta na câmera direita o ponto 3D visto em cada pixel da esquerda
+  const KL = estado.K.L, KR = estado.K.R, B = estado.B;
+  const zl = prof.L, zr = prof.R;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, Z = zl[i];
+    ocluso[i] = 0;
+    if (!(Z > 0)) { disp[i] = NaN; continue; }
+    const Xc = (x + 0.5 - KL.cx) / KL.fx * Z, Yc = (y + 0.5 - KL.cy) / KL.fy * Z;
+    const ur = KR.fx * (Xc - B) / Z + KR.cx, vr = KR.fy * Yc / Z + KR.cy;
+    const xr = Math.floor(ur), yr = Math.floor(vr);
+    if (xr < 0 || xr >= W || yr < 0 || yr >= H) { disp[i] = NaN; continue; }
+    const Zr = zr[yr * W + xr];
+    if (!(Zr > 0) || Zr < Z * 0.985) { disp[i] = NaN; ocluso[i] = 1; continue; }   // ponto escondido na câmera direita
+    disp[i] = x + 0.5 - ur;
+  }
+}
+
+function blockMatching() {
+  // SAD em janelas blockSize x blockSize, busca de d = 0 até numDisparities - 1 (imagem esquerda como referência)
+  const L = cinza.L, R = cinza.R, N = estado.nd, r = estado.bs >> 1;
+  const best = new Float32Array(N_PIX).fill(Infinity), second = new Float32Array(N_PIX).fill(Infinity);
+  const bestD = new Int16Array(N_PIX).fill(-1);
+  const cMenos = new Float32Array(N_PIX), cMais = new Float32Array(N_PIX).fill(Infinity);
+  let ant = new Float32Array(N_PIX), cur = new Float32Array(N_PIX);
+  const dif = new Float32Array(N_PIX), lin = new Float32Array(N_PIX), col = new Float32Array(W);
+
+  for (let d = 0; d < N; d++) {
+    for (let y = 0; y < H; y++) {
+      const o = y * W;
+      for (let x = 0; x < W; x++) dif[o + x] = x >= d ? Math.abs(L[o + x] - R[o + x - d]) : 255;
+      // soma horizontal na janela
+      let s = 0;
+      for (let x = 0; x <= r && x < W; x++) s += dif[o + x];
+      for (let x = 0; x < W; x++) {
+        lin[o + x] = s;
+        const sai = x - r, entra = x + r + 1;
+        if (entra < W) s += dif[o + entra];
+        if (sai >= 0) s -= dif[o + sai];
+      }
+    }
+    // soma vertical na janela (somas de coluna acumuladas linha a linha)
+    col.fill(0);
+    for (let y = 0; y <= r && y < H; y++) { const o = y * W; for (let x = 0; x < W; x++) col[x] += lin[o + x]; }
+    for (let y = 0; y < H; y++) {
+      const o = y * W;
+      for (let x = 0; x < W; x++) cur[o + x] = col[x];
+      const entra = y + r + 1, sai = y - r;
+      if (entra < H) { const oe = entra * W; for (let x = 0; x < W; x++) col[x] += lin[oe + x]; }
+      if (sai >= 0) { const os = sai * W; for (let x = 0; x < W; x++) col[x] -= lin[os + x]; }
+    }
+    for (let i = 0; i < N_PIX; i++) {
+      const c = cur[i], b = bestD[i];
+      if (c < best[i]) {
+        if (b >= 0 && d - b > 1) second[i] = Math.min(second[i], best[i]);
+        cMenos[i] = d > 0 ? ant[i] : Infinity;
+        cMais[i] = Infinity;
+        best[i] = c; bestD[i] = d;
+      } else {
+        if (b === d - 1) cMais[i] = c;
+        if (d - b > 1 && c < second[i]) second[i] = c;
+      }
+    }
+    const t = ant; ant = cur; cur = t;
+  }
+
+  const xMin = N - 1 + r;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    ocluso[i] = 0;
+    if (x < xMin || x >= W - r || y < r || y >= H - r) { disp[i] = NaN; continue; }
+    if (second[i] <= best[i] * (1 + UNICIDADE)) { disp[i] = NaN; continue; }   // ambíguo
+    let d = bestD[i];
+    const den = cMenos[i] - 2 * best[i] + cMais[i];
+    if (isFinite(den) && den > 1e-6) d += (cMenos[i] - cMais[i]) / (2 * den);   // refinamento subpixel
+    disp[i] = d;
+  }
+}
+
+// Mapas de cores --------------------------------------------------------------------------
+function turbo(t) {
+  t = Math.min(1, Math.max(0, t));
+  const r = 0.13572138 + t * (4.61539260 + t * (-42.66032258 + t * (132.13108234 + t * (-152.94239396 + t * 59.28637943))));
+  const g = 0.09140261 + t * (2.19418839 + t * (4.84296658 + t * (-14.18503333 + t * (4.27729857 + t * 2.82956604))));
+  const b = 0.10667330 + t * (12.64194608 + t * (-60.58204836 + t * (110.36276771 + t * (-89.90310912 + t * 27.34824973))));
+  return [255 * Math.min(1, Math.max(0, r)), 255 * Math.min(1, Math.max(0, g)), 255 * Math.min(1, Math.max(0, b))];
+}
+const LUT = Array.from({ length: 256 }, (_, k) => turbo(k / 255));
+
+const imgD = new ImageData(W, H), imgZ = new ImageData(W, H);
+let dMaxExibicao = 1;
+
+function profundidadeDe(i) {
+  if (estado.verReal) return prof.L[i] > 0 ? prof.L[i] : NaN;
+  const d = disp[i];
+  return d > 0 ? estado.K.L.fx * estado.B / d : NaN;
+}
+
+function colorirMapas() {
+  if (estado.modo === 'bm') dMaxExibicao = estado.nd;
+  else { let m = 1; for (let i = 0; i < N_PIX; i++) if (disp[i] > m) m = disp[i]; dMaxExibicao = Math.ceil(m); }
+  const a = imgD.data, b = imgZ.data;
+  for (let i = 0; i < N_PIX; i++) {
+    const k = 4 * i, d = disp[i];
+    if (d >= 0) { const v = Math.min(255, 255 * d / dMaxExibicao); a[k] = a[k + 1] = a[k + 2] = v; }
+    else { a[k] = a[k + 1] = a[k + 2] = 0; }
+    a[k + 3] = 255;
+    const Z = profundidadeDe(i);
+    if (Z > 0) {
+      const c = LUT[Math.round(255 * (1 - (Z - Z_MIN) / (Z_MAX - Z_MIN)))] || LUT[0];
+      b[k] = c[0]; b[k + 1] = c[1]; b[k + 2] = c[2];
+    } else { b[k] = b[k + 1] = b[k + 2] = 0; }
+    b[k + 3] = 255;
+  }
+  el('t-disp').textContent = estado.modo === 'bm' ? 'Disparidade (block matching)' : 'Disparidade (ideal)';
+  el('t-disp2').textContent = `0 – ${dMaxExibicao} px`;
+  el('t-prof').textContent = estado.verReal ? 'Profundidade real' : 'Profundidade a partir de d';
+  el('t-prof2').textContent = `${Z_MIN} – ${Z_MAX} m`;
+}
+
+// Desenho das quatro imagens --------------------------------------------------------------
+const el = id => document.getElementById(id);
+const ctx = { L: el('imgL').getContext('2d'), R: el('imgR').getContext('2d'), D: el('imgD').getContext('2d'), Z: el('imgZ').getContext('2d') };
+
+function cruz(g, x, y, cor, raio = 13) {
+  g.strokeStyle = '#ffffff'; g.lineWidth = 6;
+  g.beginPath(); g.arc(x, y, raio, 0, 2 * Math.PI); g.stroke();
+  g.strokeStyle = cor; g.lineWidth = 3;
+  g.beginPath(); g.arc(x, y, raio, 0, 2 * Math.PI);
+  g.moveTo(x - raio - 7, y); g.lineTo(x - raio + 5, y); g.moveTo(x + raio - 5, y); g.lineTo(x + raio + 7, y);
+  g.moveTo(x, y - raio - 7); g.lineTo(x, y - raio + 5); g.moveTo(x, y + raio - 5); g.lineTo(x, y + raio + 7);
+  g.stroke();
+}
+function linhasHorizontais(g) {
+  g.strokeStyle = 'rgba(0, 255, 120, 0.55)'; g.lineWidth = 1.5;
+  g.beginPath();
+  for (let v = 30; v < H; v += 40) { g.moveTo(0, v + 0.5); g.lineTo(W, v + 0.5); }
+  g.stroke();
+}
+
+let corresp = null;   // correspondência do pixel escolhido
+
+function desenhar() {
+  const [u, v] = estado.pixel, i = v * W + u;
+  ctx.L.putImageData(img.L, 0, 0);
+  ctx.R.putImageData(img.R, 0, 0);
+  ctx.D.putImageData(imgD, 0, 0);
+  ctx.Z.putImageData(imgZ, 0, 0);
+  if (estado.verLinhas) { linhasHorizontais(ctx.L); linhasHorizontais(ctx.R); }
+
+  // linha do pixel escolhido e, no block matching, o trecho de busca na imagem direita
+  const gR = ctx.R;
+  gR.strokeStyle = 'rgba(224, 123, 0, 0.9)'; gR.lineWidth = 2; gR.setLineDash([10, 7]);
+  gR.beginPath(); gR.moveTo(0, v + 0.5); gR.lineTo(W, v + 0.5); gR.stroke(); gR.setLineDash([]);
+  if (estado.modo === 'bm') {
+    const r = estado.bs >> 1, x0 = Math.max(0, u - estado.nd + 1);
+    gR.fillStyle = 'rgba(224, 123, 0, 0.28)';
+    gR.fillRect(x0 - r, v - r, u - x0 + 2 * r + 1, 2 * r + 1);
+    gR.strokeStyle = 'rgba(224, 123, 0, 0.95)'; gR.lineWidth = 2;
+    gR.strokeRect(x0 - r, v - r, u - x0 + 2 * r + 1, 2 * r + 1);
+  }
+
+  cruz(ctx.L, u + 0.5, v + 0.5, COR.L);
+  cruz(ctx.D, u + 0.5, v + 0.5, '#e07b00');
+  cruz(ctx.Z, u + 0.5, v + 0.5, '#ffffff');
+
+  // correspondência verdadeira (da geometria) e a encontrada (disparidade do mapa)
+  const Z = prof.L[i];
+  corresp = null;
+  if (Z > 0) {
+    const KL = estado.K.L, KR = estado.K.R;
+    const Xc = (u + 0.5 - KL.cx) / KL.fx * Z, Yc = (v + 0.5 - KL.cy) / KL.fy * Z;
+    corresp = { Xc, Yc, Z, ur: KR.fx * (Xc - estado.B) / Z + KR.cx, vr: KR.fy * Yc / Z + KR.cy };
+  }
+  const d = disp[i];
+  if (d >= 0) cruz(gR, u + 0.5 - d, v + 0.5, COR.R);
+  if (corresp && !(d >= 0 && Math.hypot(corresp.ur - (u + 0.5 - d), corresp.vr - (v + 0.5)) < 3)) {
+    // correspondência verdadeira diferente da encontrada (ou não encontrada)
+    gR.strokeStyle = '#ffffff'; gR.lineWidth = 3; gR.setLineDash([4, 4]);
+    gR.beginPath(); gR.arc(corresp.ur, corresp.vr, 10, 0, 2 * Math.PI); gR.stroke(); gR.setLineDash([]);
+  }
+
+  texL.needsUpdate = true;
+  texR.needsUpdate = true;
+  atualizarInfo();
+  atualizarPonto3D();
+}
+
+// Painel ----------------------------------------------------------------------------------
+const fmt = (x, n = 2) => (x >= 0 || x < 0) ? x.toFixed(n) : '—';
+function atualizarInfo() {
+  const [u, v] = estado.pixel, i = v * W + u;
+  const d = disp[i], Zd = d > 0 ? estado.K.L.fx * estado.B / d : NaN, Zr = prof.L[i];
+  let motivo = '';
+  if (!(d >= 0)) {
+    if (estado.modo === 'ideal') motivo = ocluso[i] ? 'oclusão (não visível na direita)' : 'fora da imagem direita';
+    else motivo = u < estado.nd - 1 + (estado.bs >> 1) ? 'fora da faixa de busca' : 'ambíguo (sem textura?)';
+  }
+  let html =
+    `<tr><td>pixel (<span class="mat">u</span>, <span class="mat">v</span>)</td><td>(${u}, ${v})</td></tr>` +
+    `<tr><td>disparidade <span class="mat">d</span></td><td>${d >= 0 ? fmt(d, 1) + ' px' : motivo}</td></tr>` +
+    `<tr><td><span class="mat">Z</span> a partir de <span class="mat">d</span></td><td>${Zd > 0 ? fmt(Zd) + ' m' : '—'}</td></tr>` +
+    `<tr><td><span class="mat">Z</span> real</td><td>${Zr > 0 ? fmt(Zr) + ' m' : '—'}</td></tr>`;
+  if (estado.modo === 'bm') {
+    const zMin = estado.K.L.fx * estado.B / (estado.nd - 1);
+    html += `<tr><td>menor <span class="mat">Z</span> mensurável</td><td>${fmt(zMin)} m</td></tr>`;
+  }
+  el('info').innerHTML = html;
+
+  const L = estado.K.L, R = estado.K.R, av = [];
+  if (L.fy !== R.fy || L.cy !== R.cy)
+    av.push('<i>f<sub>y</sub></i> ou <i>c<sub>y</sub></i> diferentes: o ponto cai em outra linha da imagem direita');
+  if (L.fx !== R.fx || L.cx !== R.cx)
+    av.push('<i>f<sub>x</sub></i> ou <i>c<sub>x</sub></i> diferentes: <i>d</i> não depende só de <i>Z</i>');
+  el('avisos').innerHTML = av.map(t => `<div>${t}</div>`).join('');
+}
+
+// Elementos auxiliares da cena 3D (camada 1) ----------------------------------------------
+function camada1(o) { o.traverse(f => f.layers.set(1)); return o; }
+
+function rotulo(texto, cor, altura = 0.3, italico = true) {
+  const px = 96;
+  const fonte = `${italico ? 'italic ' : ''}600 ${px}px "Cambria Math", "Times New Roman", serif`;
+  const c = document.createElement('canvas');
+  const medida = c.getContext('2d');
+  medida.font = fonte;
+  c.width = Math.ceil(medida.measureText(texto).width + px * 0.4);
+  c.height = Math.ceil(px * 1.3);
+  const g = c.getContext('2d');
+  g.font = fonte; g.fillStyle = cor; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(texto, c.width / 2, c.height / 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sp.scale.set(altura * c.width / c.height, altura, 1);
+  sp.renderOrder = 10;
+  return camada1(sp);
+}
+function linha(cor, opcoes = {}) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  const m = opcoes.tracejada
+    ? new THREE.LineDashedMaterial({ color: cor, dashSize: 0.08, gapSize: 0.06, transparent: true, opacity: opcoes.opacidade ?? 1 })
+    : new THREE.LineBasicMaterial({ color: cor, transparent: true, opacity: opcoes.opacidade ?? 1 });
+  const l = new THREE.Line(geo, m);
+  l.frustumCulled = false;
+  return camada1(l);
+}
+function definirLinha(l, a, b) {
+  const p = l.geometry.attributes.position;
+  p.setXYZ(0, a.x, a.y, a.z); p.setXYZ(1, b.x, b.y, b.z);
+  p.needsUpdate = true;
+  if (l.material.isLineDashedMaterial) l.computeLineDistances();
+}
+
+const texL = new THREE.CanvasTexture(el('imgL')); texL.colorSpace = THREE.SRGBColorSpace;
+const texR = new THREE.CanvasTexture(el('imgR')); texR.colorSpace = THREE.SRGBColorSpace;
+
+function criarRepresentacao(lado, nome, cor, tex) {
+  const g = new THREE.Group();
+  cena.add(g);
+  [[new THREE.Vector3(1, 0, 0), 0xd62728], [new THREE.Vector3(0, 1, 0), 0x2ca02c], [new THREE.Vector3(0, 0, 1), 0x1f77b4]]
+    .forEach(([d, c]) => g.add(new THREE.ArrowHelper(d, new THREE.Vector3(), 0.3, c, 0.07, 0.035)));
+  g.add(new THREE.Mesh(new THREE.SphereGeometry(0.045, 20, 20), new THREE.MeshLambertMaterial({ color: cor })));
+  const r = rotulo(nome, cor, 0.3);
+  r.position.set(lado === 'L' ? -0.2 : 0.2, -0.2, 0);
+  g.add(r);
+  const tronco = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: cor }));
+  tronco.frustumCulled = false;
+  g.add(tronco);
+  const geoPlano = new THREE.BufferGeometry();
+  geoPlano.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(12), 3));
+  geoPlano.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  geoPlano.setIndex([0, 1, 2, 0, 2, 3]);
+  const plano = new THREE.Mesh(geoPlano, new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
+  plano.frustumCulled = false;
+  g.add(plano);
+  camada1(g);
+  return { g, tronco, plano };
+}
+const rep = { L: criarRepresentacao('L', 'Cₗ', COR.L, texL), R: criarRepresentacao('R', 'Cᵣ', COR.R, texR) };
+
+const linhaBase = linha(COR.base, { tracejada: true, opacidade: 0.8 });
+const rotB = rotulo('B', COR.base, 0.26);
+const ponto3D = camada1(new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 20), new THREE.MeshBasicMaterial({ color: COR.ponto })));
+const raioL = linha(COR.L, { opacidade: 0.9 }), raioR = linha(COR.R, { opacidade: 0.9 });
+cena.add(linhaBase, rotB, ponto3D, raioL, raioR);
+
+function atualizarRepresentacao(lado) {
+  const K = estado.K[lado], R = rep[lado];
+  R.g.position.set(lado === 'L' ? 0 : estado.B, 0, 0);
+  const cantos = [[0, 0], [W, 0], [W, H], [0, H]].map(([u, v]) =>
+    new THREE.Vector3((u - K.cx) / K.fx * D_PLANO, (v - K.cy) / K.fy * D_PLANO, D_PLANO));
+  const pts = [];
+  cantos.forEach(c => pts.push(new THREE.Vector3(), c));
+  cantos.forEach((c, k) => pts.push(c, cantos[(k + 1) % 4]));
+  R.tronco.geometry.setFromPoints(pts);
+  const p = R.plano.geometry.attributes.position;
+  cantos.forEach((c, k) => p.setXYZ(k, c.x, c.y, c.z));
+  p.needsUpdate = true;
+}
+
+function atualizarPonto3D() {
+  const CL = rep.L.g.position, CR = rep.R.g.position;
+  definirLinha(linhaBase, CL, CR);
+  rotB.position.set(estado.B / 2, -0.12, 0);
+  const vis = !!corresp;
+  ponto3D.visible = raioL.visible = raioR.visible = vis;
+  if (!vis) return;
+  const P = new THREE.Vector3(corresp.Xc, corresp.Yc, corresp.Z);
+  ponto3D.position.copy(P);
+  definirLinha(raioL, CL, P);
+  definirLinha(raioR, CR, P);
+}
+
+// Atualização ----------------------------------------------------------------------------
+let tarefaBM = null;
+function atualizarTudo(espera = 30) {
+  atualizarRepresentacao('L');
+  atualizarRepresentacao('R');
+  renderizarCamera('L');
+  renderizarCamera('R');
+  calcularDisparidade(espera);
+}
+function calcularDisparidade(espera = 30) {
+  clearTimeout(tarefaBM);
+  if (estado.modo === 'ideal') {
+    disparidadeIdeal();
+    colorirMapas();
+    desenhar();
+    return;
+  }
+  el('t-disp2').textContent = 'calculando…';
+  desenhar();
+  tarefaBM = setTimeout(() => { blockMatching(); colorirMapas(); desenhar(); }, espera);
+}
+
+// Controles -------------------------------------------------------------------------------
+const CAMPOS = ['fx', 'fy', 'cx', 'cy'];
+function mostrarSliders() {
+  el('B').value = estado.B; el('B-v').textContent = estado.B.toFixed(2);
+  const K = estado.K[estado.editando];
+  CAMPOS.forEach(c => { el(c).value = K[c]; el(c + '-v').textContent = K[c]; });
+  el('cam-L').classList.toggle('ativo', estado.editando === 'L');
+  el('cam-R').classList.toggle('ativo', estado.editando === 'R');
+  el('iguais').checked = estado.iguais;
+  el('nd').value = estado.nd; el('nd-v').textContent = estado.nd;
+  el('bs').value = estado.bs; el('bs-v').textContent = estado.bs;
+  const bm = estado.modo === 'bm';
+  ['nd', 'bs'].forEach(c => { el(c).disabled = !bm; el('b-' + c).classList.toggle('desligado', !bm); });
+  el('m-ideal').classList.toggle('ativo', !bm);
+  el('m-bm').classList.toggle('ativo', bm);
+  el('ver-linhas').classList.toggle('ativo', estado.verLinhas);
+  el('ver-real').classList.toggle('ativo', estado.verReal);
+}
+
+// no block matching (mais lento), o cálculo espera o controle parar de se mover
+el('B').addEventListener('input', () => { estado.B = +el('B').value; mostrarSliders(); atualizarTudo(350); });
+CAMPOS.forEach(c => el(c).addEventListener('input', () => {
+  const v = +el(c).value;
+  estado.K[estado.editando][c] = v;
+  if (estado.iguais) estado.K[estado.editando === 'L' ? 'R' : 'L'][c] = v;
+  mostrarSliders(); atualizarTudo(350);
+}));
+['L', 'R'].forEach(l => el('cam-' + l).addEventListener('click', () => { estado.editando = l; mostrarSliders(); }));
+el('iguais').addEventListener('change', () => {
+  estado.iguais = el('iguais').checked;
+  if (estado.iguais) {    // a câmera que não está sendo editada passa a copiar a que está
+    const outro = estado.editando === 'L' ? 'R' : 'L';
+    estado.K[outro] = { ...estado.K[estado.editando] };
+    atualizarTudo();
+  }
+  mostrarSliders();
+});
+el('m-ideal').addEventListener('click', () => { estado.modo = 'ideal'; mostrarSliders(); calcularDisparidade(); });
+el('m-bm').addEventListener('click', () => { estado.modo = 'bm'; mostrarSliders(); calcularDisparidade(); });
+['nd', 'bs'].forEach(c => {
+  el(c).addEventListener('input', () => { estado[c] = +el(c).value; mostrarSliders(); });
+  el(c).addEventListener('change', () => { estado[c] = +el(c).value; mostrarSliders(); calcularDisparidade(); });
+});
+el('ver-linhas').addEventListener('click', () => { estado.verLinhas = !estado.verLinhas; mostrarSliders(); desenhar(); });
+el('ver-real').addEventListener('click', () => { estado.verReal = !estado.verReal; mostrarSliders(); colorirMapas(); desenhar(); });
+
+function resetar() {
+  estado.B = INICIAL.B;
+  estado.K = { L: { ...INICIAL.K }, R: { ...INICIAL.K } };
+  estado.editando = 'L'; estado.iguais = true;
+  estado.modo = 'ideal'; estado.nd = INICIAL.nd; estado.bs = INICIAL.bs;
+  estado.verLinhas = true; estado.verReal = false;
+  estado.pixel = INICIAL.pixel.slice();
+  observador.position.set(-0.6, -6.2, -4.2);
+  orbita.target.set(0.2, 0.6, 4.6);
+  orbita.update();
+  mostrarSliders();
+  atualizarTudo();
+}
+el('resetar').addEventListener('click', resetar);
+
+// escolha do pixel clicando nas imagens
+['imgL', 'imgD', 'imgZ'].forEach(id => el(id).addEventListener('click', e => {
+  const r = e.target.getBoundingClientRect();
+  const u = Math.floor((e.clientX - r.left) / r.width * W), v = Math.floor((e.clientY - r.top) / r.height * H);
+  estado.pixel = [Math.min(W - 1, Math.max(0, u)), Math.min(H - 1, Math.max(0, v))];
+  desenhar();
+}));
+
+// Integração com o revealjs ---------------------------------------------------------------
+// Dentro de um iframe, as teclas não chegam ao revealjs. Repassa as teclas de
+// navegação ao slide pai (quando ele for acessível) e devolve o foco a ele.
+const navegacao = { ArrowRight: 'right', ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up',
+                    PageDown: 'next', PageUp: 'prev', ' ': 'next' };
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input')) return;
+  const acao = navegacao[e.key];
+  if (!acao) return;
+  try {
+    const R = window.parent !== window && window.parent.Reveal;
+    if (!R) return;
+    e.preventDefault();
+    window.parent.focus();
+    R[acao]();
+  } catch (_) { /* página pai inacessível (ex.: aberta via file://) */ }
+});
+// Depois de arrastar um slider com o mouse, tira o foco dele para que as setas voltem a navegar
+document.querySelectorAll('input[type=range]').forEach(i => i.addEventListener('pointerup', () => i.blur()));
+
+// Laço de renderização --------------------------------------------------------------------
+function redimensionar() {
+  const w = container.clientWidth, hh = container.clientHeight;
+  renderer.setSize(w, hh, false);
+  renderer.domElement.style.width = w + 'px';
+  renderer.domElement.style.height = hh + 'px';
+  observador.aspect = w / hh;
+  // desloca o centro da vista para a esquerda, para a cena não ficar atrás das imagens
+  const s = Math.round(0.13 * w);
+  observador.setViewOffset(w + 2 * s, hh, 2 * s, 0, w, hh);
+  observador.updateProjectionMatrix();
+}
+new ResizeObserver(redimensionar).observe(container);
+
+function animar() {
+  orbita.update();
+  renderer.render(cena, observador);
+  requestAnimationFrame(animar);
+}
+
+redimensionar();
+resetar();
+animar();
+})();
+</script>
+</body>
+</html>
