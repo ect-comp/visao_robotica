@@ -15,6 +15,18 @@ Por qual motivo?
 
 Seres humanos e vários outros animais utilizam dois olhos para a obtenção da profundidade de objetos
 
+## Sensores Estéreo {.nostretch}
+
+::: {layout-ncol=2 layout-valign="bottom"}
+![Stereolabs ZED](img/sensor_zed.jpg){height=170px}
+
+![Intel RealSense D435i](img/sensor_D435i.png){height=170px}
+
+![Luxonis OAK-D Lite](img/sensor_oakd.jpeg){height=170px}
+
+![Orbbec Astra](img/sensor_astra.jpg){height=170px}
+:::
+
 ## Visão Estéreo II
 
 Em Visão Computacional:

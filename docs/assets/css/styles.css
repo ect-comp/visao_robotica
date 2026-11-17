@@ -4,3 +4,7 @@
   color: #666;
   margin-top: 0.2em;
 }
+/* legenda centralizada sob figuras centralizadas */
+.reveal .quarto-figure-center figcaption {
+  text-align: center;
+}
