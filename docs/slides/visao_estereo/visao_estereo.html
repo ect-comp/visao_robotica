@@ -713,7 +713,7 @@ Prof.&nbsp;Bruno Silva
 <h2>Correspondência Estéreo I</h2>
 <p>Processo responsável por:</p>
 <ul>
-<li>Obter as coordenadas 2D <span class="math inline">\mathbf{x}^l</span> e <span class="math inline">\mathbf{x}^r</span> nas imagens esquerda e direita de um mesmo ponto 3D <span class="math inline">\mathbf{X}</span></li>
+<li>Obter as coordenadas 2D <span class="math inline">\mathbf{x}_l</span> e <span class="math inline">\mathbf{x}_r</span> nas imagens esquerda e direita de um mesmo ponto 3D <span class="math inline">\mathbf{X}</span></li>
 <li>Com imagens previamente retificadas, a busca por correspondências é acelerada: ao invés da correspondência ser buscada em toda a imagem, ela é buscada em uma única linha</li>
 </ul>
 </section>
@@ -721,7 +721,7 @@ Prof.&nbsp;Bruno Silva
 <h2>Correspondência Estéreo II</h2>
 <p>O resultado da correspondência estéreo é chamado de cálculo de <strong>disparidade</strong>:</p>
 <ul>
-<li>Diferença em pixels <span class="math inline">x_l-x_r</span> entre as coordenadas x de um mesmo ponto</li>
+<li>Diferença em pixels <span class="math inline">x_l-x_r</span> entre as coordenadas <span class="math inline">x</span> de um mesmo ponto</li>
 <li>Forma uma tripla <span class="math inline">[x_l, y, x_r]^t</span> ou <span class="math inline">[x_l, y_l, d]^t</span>
 <ul>
 <li>Lembre-se que em imagens retificadas, <span class="math inline">y_l = y_r = y</span> e <span class="math inline">x_r = x_l + d</span></li>
@@ -801,7 +801,7 @@ Prof.&nbsp;Bruno Silva
 <p>Observações importantes:</p>
 <ul>
 <li>Pontos mais próximos do que a faixa informada recebem disparidade inválida</li>
-<li>Aumentar <code>numDisparities</code> não melhora a resolução; ao invés disto, amplia o alcance em direção à câmera, a um custo maior de processamento e com uma faixa inválida maior na borda esquerda do mapa</li>
+<li>Aumentar <code>numDisparities</code> não melhora a resolução; ao invés disto, amplia o alcance em direção à câmera, a um custo maior de processamento e com uma faixa inválida maior na borda esquerda da imagem</li>
 </ul>
 </section>
 <section id="correspondência-estéreo-x" class="slide level2 nostretch">
@@ -877,7 +877,7 @@ Prof.&nbsp;Bruno Silva
 <p>O mapa de disparidade é geralmente armazenado com o tipo <code>CV_16S</code>:</p>
 <ul>
 <li>A resolução do mapa é de <span class="math inline">1/16 = 0,0625</span> pixel. Ela é imposta quando os valores <span class="math inline">d-1, d, d+1</span> são interpolados para obter disparidade a nível de subpixel</li>
-<li>Assim, em cada posição do mapa, o valor armazenado é na verdade <span class="math inline">16.d</span>: a disparidade real é obtida portanto por <span class="math inline">d/16</span></li>
+<li>Assim, em cada posição do mapa de disparidade, o valor armazenado é na verdade <span class="math inline">16 \times d</span>: a disparidade real é obtida portanto por <span class="math inline">d/16</span></li>
 <li>Pixels sem correspondência recebem o valor <code>(minDisparity - 1) x 16</code></li>
 </ul>
 </section></section>
@@ -890,7 +890,7 @@ Prof.&nbsp;Bruno Silva
 <h2>Reconstrução Estéreo I</h2>
 <p>Processo responsável por:</p>
 <ul>
-<li>Calcular a profundidade (em unidades de medida) a partir do mapa de disparidade</li>
+<li>Calcular a profundidade (em unidades de comprimento) a partir do mapa de disparidade</li>
 <li>Realizado por aplicação de um modelo geométrico que relaciona o par de câmeras</li>
 <li>O resultado do processo é chamado de <strong><em>mapa de profundidade</em></strong></li>
 </ul>
@@ -901,7 +901,7 @@ Prof.&nbsp;Bruno Silva
 <ul>
 <li>Eixos ópticos das duas câmeras paralelos</li>
 <li>Planos de imagem das duas câmeras coplanares</li>
-<li>As duas câmeras possuem a mesma distância focal: <span class="math inline">f = f^l = f^r</span></li>
+<li>As duas câmeras possuem a mesma distância focal: <span class="math inline">f = f_l = f_r</span></li>
 <li>As duas câmeras estão separadas por uma distância <span class="math inline">B</span> (linha de base)</li>
 </ul>
 </section>
@@ -909,9 +909,9 @@ Prof.&nbsp;Bruno Silva
 <h2>Reconstrução Estéreo III</h2>
 <p>Premissas:</p>
 <ul>
-<li>As coordenadas horizontais dos centros de projeção das duas câmeras são iguais: <span class="math inline">c_x^l = c_x^r</span></li>
+<li>As coordenadas horizontais dos centros de projeção das duas câmeras são iguais: <span class="math inline">c_{x_l} = c_{x_r}</span></li>
 <li>As duas imagens estão alinhadas por linha</li>
-<li>Um ponto 3D <span class="math inline">\mathbf{X}</span> no mundo pode ser achado sem ambiguidades nas câmeras esquerda <span class="math inline">\mathbf{x}^l</span> e direita <span class="math inline">\mathbf{x}^r</span></li>
+<li>Um ponto 3D <span class="math inline">\mathbf{X}</span> no mundo pode tem projeções nas câmeras esquerda <span class="math inline">\mathbf{x}_l</span> e direita <span class="math inline">\mathbf{x}_r</span></li>
 <li>A origem do sistema de coordenadas do sistema estéreo (<em>stereo rig</em>) está na câmera esquerda</li>
 </ul>
 </section>
@@ -920,7 +920,8 @@ Prof.&nbsp;Bruno Silva
 <div class="columns">
 <div class="column" style="width:50%;">
 <p>Modelo geométrico - triangulação:</p>
-<p>Obtenção da profundidade de um ponto (coordenada <span class="math inline">Z</span>) através da imagem de um ponto em duas câmeras.</p>
+<p>Obtenção da profundidade de um ponto 3D (coordenada <span class="math inline">Z</span>) através das coordenadas <span class="math inline">x_l</span> e <span class="math inline">x_r</span> da projeção deste ponto em duas câmeras.</p>
+<p>Observe que <span class="math inline">x_l</span> e <span class="math inline">x_r</span> estão em unidade de comprimento, assim como <span class="math inline">d</span>.</p>
 </div><div class="column" style="width:50%;">
 <div class="quarto-figure quarto-figure-center">
 <figure>
@@ -932,26 +933,36 @@ Prof.&nbsp;Bruno Silva
 <section id="reconstrução-estéreo-v" class="slide level2">
 <h2>Reconstrução Estéreo V</h2>
 <p>Por semelhança de triângulos:</p>
+<ul>
+<li><p>Base do triângulo 1: <span class="math inline">B</span></p></li>
+<li><p>Altura do triângulo 1: <span class="math inline">Z</span></p></li>
+<li><p>Base do triângulo 2: <span class="math inline">(B+x^r) - x^l</span></p></li>
+<li><p>Altura do triângulo 2: <span class="math inline">Z - f</span></p></li>
+</ul>
+</section>
+<section id="reconstrução-estéreo-vi" class="slide level2">
+<h2>Reconstrução Estéreo VI</h2>
+<p>Assim:</p>
 <p><span class="math display">
-\frac{B}{Z} = \frac{B - (x^r - x^l)}{Z - f}
+\frac{B}{Z} = \frac{B - (x^l - x^r)}{Z - f}
 </span></p>
 <p><span class="math display">
-Z = \frac{fB}{x^l - x^r}
+\frac{B}{Z} = \frac{B - d}{Z - f}
 </span></p>
 <p><span class="math display">
 Z = \frac{fB}{d}
 </span></p>
 </section>
-<section id="reconstrução-estéreo-vi" class="slide level2">
-<h2>Reconstrução Estéreo VI</h2>
+<section id="reconstrução-estéreo-vii" class="slide level2">
+<h2>Reconstrução Estéreo VII</h2>
 <p>Observe a importância dos parâmetros da correspondência estéreo <code>minDisparity</code> e <code>numDisparities</code>:</p>
 <p>Considere que o par estéreo possui <span class="math inline">B = 0,1m</span> e <span class="math inline">f = 440</span> px. Para <code>minDisparity = 0</code> e <code>numDisparities = 160</code>, a profundidade mínima do sistema será:</p>
 <p><span class="math display">
 Z_{min} = \frac{fB}{d} = \frac{440 \times 0,1}{160} = 27,5cm
 </span></p>
 </section>
-<section id="reconstrução-estéreo-vii" class="slide level2">
-<h2>Reconstrução Estéreo VII</h2>
+<section id="reconstrução-estéreo-viii" class="slide level2">
+<h2>Reconstrução Estéreo VIII</h2>
 <p>Ainda com os mesmos parâmetros, observe a diferença das profundidades <span class="math inline">Z_1</span> e <span class="math inline">Z_2</span>, correspondentes aos planos inteiros obtidos com disparidades <span class="math inline">d=1</span> e <span class="math inline">d=2</span> respectivamente:</p>
 <p><span class="math display">
 Z_{1} = \frac{fB}{d} = \frac{440 \times 0,1}{1} = 44m

@@ -319,7 +319,7 @@ Na OpenCV, este processo é computado com duas funções:
 
 Processo responsável por:
 
-- Obter as coordenadas 2D $\mathbf{x}^l$ e $\mathbf{x}^r$ nas imagens esquerda e direita de um mesmo ponto 3D $\mathbf{X}$
+- Obter as coordenadas 2D $\mathbf{x}_l$ e $\mathbf{x}_r$ nas imagens esquerda e direita de um mesmo ponto 3D $\mathbf{X}$
 - Com imagens previamente retificadas, a busca por correspondências é acelerada: ao invés da correspondência ser buscada em toda a imagem, ela é buscada em uma única linha
 
 ## Correspondência Estéreo II
@@ -327,7 +327,7 @@ Processo responsável por:
 O resultado da correspondência estéreo é chamado de
 cálculo de **disparidade**:
 
-- Diferença em pixels $x_l-x_r$ entre as coordenadas x de um mesmo ponto
+- Diferença em pixels $x_l-x_r$ entre as coordenadas $x$ de um mesmo ponto
 - Forma uma tripla $[x_l, y, x_r]^t$ ou $[x_l, y_l, d]^t$
   - Lembre-se que em imagens retificadas, $y_l = y_r = y$
     e $x_r = x_l + d$
@@ -407,7 +407,7 @@ Observações importantes:
 - Pontos mais próximos do que a faixa informada recebem disparidade
   inválida
 - Aumentar `numDisparities` não melhora a resolução; ao invés disto,
-  amplia o alcance em direção à câmera, a um custo maior de processamento e com uma faixa inválida maior na borda esquerda do mapa
+  amplia o alcance em direção à câmera, a um custo maior de processamento e com uma faixa inválida maior na borda esquerda da imagem
 
 ## Correspondência Estéreo X {.nostretch}
 
@@ -481,8 +481,8 @@ com o tipo `CV_16S`:
 - A resolução do mapa é de $1/16 = 0,0625$ pixel. Ela é imposta
   quando os valores $d-1, d, d+1$ são interpolados para obter disparidade
   a nível de subpixel
-- Assim, em cada posição do mapa, o valor armazenado é na verdade
-  $16.d$: a disparidade real é obtida portanto por $d/16$
+- Assim, em cada posição do mapa de disparidade, o valor armazenado é na verdade
+  $16 \times d$: a disparidade real é obtida portanto por $d/16$
 - Pixels sem correspondência recebem o valor
   `(minDisparity - 1) x 16`
 
@@ -492,7 +492,7 @@ com o tipo `CV_16S`:
 
 Processo responsável por:
 
-- Calcular a profundidade (em unidades de medida) a partir do mapa de disparidade
+- Calcular a profundidade (em unidades de comprimento) a partir do mapa de disparidade
 - Realizado por aplicação de um modelo geométrico que relaciona o par de câmeras
 - O resultado do processo é chamado de ***mapa de profundidade***
 
@@ -502,16 +502,16 @@ Premissas:
 
 - Eixos ópticos das duas câmeras paralelos
 - Planos de imagem das duas câmeras coplanares
-- As duas câmeras possuem a mesma distância focal: $f = f^l = f^r$
+- As duas câmeras possuem a mesma distância focal: $f = f_l = f_r$
 - As duas câmeras estão separadas por uma distância $B$ (linha de base)
 
 ## Reconstrução Estéreo III
 
 Premissas:
 
-- As coordenadas horizontais dos centros de projeção das duas câmeras são iguais: $c_x^l = c_x^r$
+- As coordenadas horizontais dos centros de projeção das duas câmeras são iguais: $c_{x_l} = c_{x_r}$
 - As duas imagens estão alinhadas por linha
-- Um ponto 3D $\mathbf{X}$ no mundo pode ser achado sem ambiguidades nas câmeras esquerda $\mathbf{x}^l$ e direita $\mathbf{x}^r$
+- Um ponto 3D $\mathbf{X}$ no mundo pode tem projeções nas câmeras esquerda $\mathbf{x}_l$ e direita $\mathbf{x}_r$
 - A origem do sistema de coordenadas do sistema estéreo (*stereo rig*) está na câmera esquerda
 
 ## Reconstrução Estéreo IV {.nostretch}
@@ -521,7 +521,11 @@ Premissas:
 
 Modelo geométrico - triangulação:
 
-Obtenção da profundidade de um ponto (coordenada $Z$) através da imagem de um ponto em duas câmeras.
+Obtenção da profundidade de um ponto 3D (coordenada $Z$) através
+das coordenadas $x_l$ e $x_r$ da projeção deste ponto em duas
+câmeras.
+
+Observe que $x_l$ e $x_r$ estão em unidade de comprimento, assim como $d$.
 
 :::
 ::: {.column width="50%"}
@@ -535,19 +539,29 @@ Obtenção da profundidade de um ponto (coordenada $Z$) através da imagem de um
 
 Por semelhança de triângulos:
 
+- Base do triângulo 1: $B$
+- Altura do triângulo 1: $Z$
+
+- Base do triângulo 2: $(B+x^r) - x^l$
+- Altura do triângulo 2: $Z - f$
+
+## Reconstrução Estéreo VI
+
+Assim:
+
 $$
-\frac{B}{Z} = \frac{B - (x^r - x^l)}{Z - f}
+\frac{B}{Z} = \frac{B - (x^l - x^r)}{Z - f}
 $$
 
 $$
-Z = \frac{fB}{x^l - x^r}
+\frac{B}{Z} = \frac{B - d}{Z - f}
 $$
 
 $$
 Z = \frac{fB}{d}
 $$
 
-## Reconstrução Estéreo VI
+## Reconstrução Estéreo VII
 
 Observe a importância dos parâmetros da correspondência estéreo
 `minDisparity` e `numDisparities`:
@@ -560,7 +574,7 @@ $$
 Z_{min} = \frac{fB}{d} = \frac{440 \times 0,1}{160} = 27,5cm
 $$
 
-## Reconstrução Estéreo VII
+## Reconstrução Estéreo VIII
 
 Ainda com os mesmos parâmetros, observe a diferença das profundidades
 $Z_1$ e $Z_2$, correspondentes aos planos inteiros obtidos com disparidades
